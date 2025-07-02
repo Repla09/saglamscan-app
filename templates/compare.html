@@ -1,0 +1,123 @@
+{% extends "_base.html" %}
+{% block title %}{{ t['compare_products'] }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .compare-container { max-width: 950px; margin: 2rem auto; }
+    .header-card { background: linear-gradient(135deg, #673AB7, #512DA8); color: white; padding: 40px; border-radius: 16px; text-align: center; margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(103, 58, 183, 0.25); }
+    .header-card h1 { font-family: 'Montserrat', sans-serif; font-size: 2.5em; margin: 0 0 10px; }
+    .header-card p { font-size: 1.2em; opacity: 0.9; margin: 0; }
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+    .upload-card { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.08); text-align: center; border: 2px dashed #e0e0e0; }
+    .upload-card label { cursor: pointer; font-weight: 600; color: var(--primary-color); font-size: 1.1em; display: block; margin-bottom: 15px; }
+    .upload-card input[type="file"] { display: none; }
+    .file-name { font-style: italic; color: #6c757d; margin-top: 10px; min-height: 20px; word-wrap: break-word; }
+    .submit-button-wrapper { text-align: center; margin-bottom: 2rem; }
+    .submit-button { padding: 15px 40px; font-size: 1.2em; font-weight: 600; cursor: pointer; border: none; border-radius: 8px; background-color: #673AB7; color: white; }
+    .submit-button:disabled { background-color: #6c757d; cursor: not-allowed; }
+    .results-wrapper { margin-top: 3rem; }
+    .ai-insight-card { background: linear-gradient(135deg, #e3f2fd, #e8eaf6); border-left: 6px solid #3f51b5; border-radius: 16px; padding: 1.5rem 2rem; margin: 0 auto 2.5rem auto; box-shadow: 0 5px 25px rgba(63, 81, 181, 0.1); }
+    .ai-insight-card h2 { font-size: 1.5rem; color: #3f51b5; margin: 0 0 10px 0; display: flex; align-items: center; gap: 12px; font-weight: 700; }
+    .ai-insight-card p { font-size: 1.1em; line-height: 1.7; color: #4a5568; margin: 0; }
+    .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: flex-start; }
+    .product-comparison-card { background: white; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); padding: 25px; position: relative; }
+    .product-comparison-card.winner-card { border: 3px solid #4CAF50; transform: translateY(-5px); box-shadow: 0 12px 35px rgba(76, 175, 80, 0.2); }
+    .winner-banner { background: #4CAF50; color: white; padding: 6px 18px; font-size: 1.1em; font-weight: 700; border-radius: 20px; display: inline-block; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); }
+    .product-header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+    .product-header h3 { font-family: 'Montserrat'; margin: 0; word-wrap: break-word; font-size: 1.3em;}
+    .product-header .grade { font-size: 2.2em; font-weight: 900; margin-top: 5px; }
+    .grade-A-text { color: #4CAF50; } .grade-B-text { color: #8BC34A; } .grade-C-text { color: #FFC107; } .grade-D-text { color: #FF9800; } .grade-F-text { color: #F44336; }
+    .product-image { width: 100%; border-radius: 8px; margin-bottom: 20px; aspect-ratio: 1/1; object-fit: cover;}
+    .nutrient-comparison-row { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+    .nutrient-comparison-row:last-child { border-bottom: none; }
+    .nutrient-comparison-row strong { font-size: 1em; color: #333; }
+    .nutrient-comparison-row span { font-size: 1.1em; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
+    .value-winner { background-color: #e8f5e9; color: #2e7d32; } .value-neutral { background-color: #f5f5f5; color: #444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="compare-container">
+    <div class="header-card"><h1>{{ t['product_comparison'] }}</h1><p>{{ t['upload_two_labels'] }}</p></div>
+
+    <form method="POST" action="{{ url_for('compare') }}" enctype="multipart/form-data" onsubmit="handleCompareSubmit(event)">
+        <div class="upload-grid">
+            <div class="upload-card">
+                <label for="file1">{{ t['upload_product'] }} 1</label>
+                <input type="file" name="file1" id="file1" accept="image/*" required onchange="displayFileName('file1', 'file1-name')">
+                <div id="file1-name" class="file-name">{{ t['no_file_chosen'] }}</div>
+            </div>
+            <div class="upload-card">
+                <label for="file2">{{ t['upload_product'] }} 2</label>
+                <input type="file" name="file2" id="file2" accept="image/*" required onchange="displayFileName('file2', 'file2-name')">
+                <div id="file2-name" class="file-name">{{ t['no_file_chosen'] }}</div>
+            </div>
+        </div>
+        <div class="submit-button-wrapper"><button type="submit" id="compare-submit-button" class="submit-button">{{ t['compare_now'] }}</button></div>
+    </form>
+
+    {% if has_results %}
+    <div class="results-wrapper">
+        {% set grade1 = product1.health_grade or 'Z' %} {% set grade2 = product2.health_grade or 'Z' %}
+        {% set winner_num = 0 %} {% if grade1 < grade2 %}{% set winner_num = 1 %}{% elif grade2 < grade1 %}{% set winner_num = 2 %}{% endif %}
+
+        {% if ai_summary and ai_summary != t['comparison_error'] %}
+        <div class="ai-insight-card">
+            <h2><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>{{ t['ai_comparison_insight'] }}</h2>
+            <p>{{ ai_summary }}</p>
+        </div>
+        {% endif %}
+
+        <div class="comparison-grid">
+            <div class="product-comparison-card {% if winner_num == 1 %}winner-card{% endif %}">
+                {% if winner_num == 1 %}<div class="winner-banner">{{ t['healthier_choice'] }}</div>{% endif %}
+                <div class="product-header"><h3>{{ product1.original_filename or 'Product 1' }}</h3><div class="grade grade-{{ grade1 }}-text">{{ grade1 }}</div></div>
+                {% if product1.filename %} <img class="product-image" src="{{ url_for('get_processed_image', filename=product1.filename) }}"> {% endif %}
+                {% for key in ['calories', 'protein', 'added_sugars', 'sodium'] %}
+                <div class="nutrient-comparison-row">
+                    <strong>{{ t.get(key, key|title) }}</strong>
+                    <span class="{{ 'value-winner' if product1.get(key, 'N/A') != 'N/A' and product2.get(key, 'N/A') != 'N/A' and ((product1[key]|replace('g','')|replace('mg','')|float) < (product2[key]|replace('g','')|replace('mg','')|float) if nutrient_classes[key]=='negative' else (product1[key]|replace('g','')|replace('mg','')|float) > (product2[key]|replace('g','')|replace('mg','')|float)) else 'value-neutral' }}">{{ product1.get(key, 'N/A') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="product-comparison-card {% if winner_num == 2 %}winner-card{% endif %}">
+                {% if winner_num == 2 %}<div class="winner-banner">{{ t['healthier_choice'] }}</div>{% endif %}
+                <div class="product-header"><h3>{{ product2.original_filename or 'Product 2' }}</h3><div class="grade grade-{{ grade2 }}-text">{{ grade2 }}</div></div>
+                {% if product2.filename %} <img class="product-image" src="{{ url_for('get_processed_image', filename=product2.filename) }}"> {% endif %}
+                {% for key in ['calories', 'protein', 'added_sugars', 'sodium'] %}
+                <div class="nutrient-comparison-row">
+                    <strong>{{ t.get(key, key|title) }}</strong>
+                    <span class="{{ 'value-winner' if product1.get(key, 'N/A') != 'N/A' and product2.get(key, 'N/A') != 'N/A' and ((product2[key]|replace('g','')|replace('mg','')|float) < (product1[key]|replace('g','')|replace('mg','')|float) if nutrient_classes[key]=='negative' else (product2[key]|replace('g','')|replace('mg','')|float) > (product1[key]|replace('g','')|replace('mg','')|float)) else 'value-neutral' }}">{{ product2.get(key, 'N/A') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% elif error_message %}
+        <div class="results-wrapper" style="text-align:center;"><h2 style="color: var(--error-color);">{{ t['error_occurred'] }}</h2><p>{{ error_message }}</p></div>
+    {% endif %}
+</div>
+<script>
+    function handleCompareSubmit(event) {
+        const f1 = document.getElementById('file1'), f2 = document.getElementById('file2');
+        if (f1.files.length > 0 && f2.files.length > 0) {
+            const b = document.getElementById('compare-submit-button');
+            b.disabled = true;
+            b.textContent = '{{ t["comparing"] }}';
+        }
+    }
+    function displayFileName(fileInputId, nameElementId) {
+        const f = document.getElementById(fileInputId), n = document.getElementById(nameElementId);
+        if(f.files.length > 0) {
+            n.textContent = f.files[0].name;
+            n.style.fontStyle = 'normal';
+            n.style.color = '#333';
+        } else {
+            n.textContent = "{{ t['no_file_chosen'] }}";
+            n.style.fontStyle = 'italic';
+            n.style.color = '#6c757d';
+        }
+    }
+</script>
+{% endblock %}

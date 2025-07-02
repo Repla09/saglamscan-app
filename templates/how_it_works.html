@@ -1,0 +1,44 @@
+{% extends "_base.html" %}
+{% block title %}{{ t['how_it_works'] }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .how-it-works-wrapper {
+        max-width: 800px; margin: 2rem auto; background-color: white;
+        padding: 30px 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    .how-it-works-wrapper h1, .how-it-works-wrapper h2 {
+        font-family: 'Montserrat', sans-serif; color: var(--primary-color);
+        text-align: center; border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 10px; margin-bottom: 20px;
+    }
+    .how-it-works-wrapper h1 { font-size: 2.5em; border: none; }
+    .how-it-works-wrapper h2 { font-size: 1.8em; text-align: left; }
+    .how-it-works-wrapper p, .how-it-works-wrapper li { color: #37474f; line-height: 1.7; font-size: 1.1em; }
+    .how-it-works-wrapper ol, .how-it-works-wrapper ul { padding-left: 20px; }
+    .how-it-works-wrapper strong { color: #333; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="how-it-works-wrapper">
+    <h1>{{ t['process_title'] }}</h1>
+    <p style="text-align:center; font-size: 1.2em; color: #546e7a;">{{ t['process_subtitle'] }}</p>
+
+    <h2>{{ t['the_process'] }}</h2>
+    <ol>
+        <li><strong>{{ t['image_upload'] }}</strong> {{ t['image_upload_desc'] }}</li>
+        <li><strong>{{ t['ai_data_extraction'] }}</strong> {{ t['ai_data_extraction_desc'] }}</li>
+        <li><strong>{{ t['ai_summary_grading'] }}</strong> {{ t['ai_summary_grading_desc'] }}</li>
+        <li><strong>{{ t['display_results'] }}</strong> {{ t['display_results_desc'] }}</li>
+    </ol>
+
+    <h2>{{ t['grading_system'] }}</h2>
+    <p>{{ t['grading_desc'] }}</p>
+    <ul>
+        <li><strong>{{ t['penalties'] }}</strong> {{ t['penalties_desc'] }}</li>
+        <li><strong>{{ t['bonuses'] }}</strong> {{ t['bonuses_desc'] }}</li>
+    </ul>
+    <p><strong>{{ t['disclaimer'] }}</strong> {{ t['disclaimer_text'] }}</p>
+</div>
+{% endblock %}

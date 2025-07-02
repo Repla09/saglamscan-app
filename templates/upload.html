@@ -1,0 +1,66 @@
+{% extends "_base.html" %}
+{% block title %}{{ t['upload_analyze'] }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .content { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 100px); padding: 20px; }
+    .upload-container { background-color: white; padding: 40px 50px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 500px; }
+    .upload-container h1 { font-family: 'Montserrat', sans-serif; color: var(--primary-color); margin-bottom: 15px; }
+    .file-input-label { display: inline-block; background-color: var(--primary-color); color: white; padding: 15px 30px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; }
+    .file-input-label:hover { transform: translateY(-2px); }
+    input[type="file"] { display: none; }
+    .file-status { margin-top: 20px; color: #546e7a; min-height: 24px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .file-status.file-added { color: #28a745; }
+    .submit-button { background-color: #007bff; color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-size: 1.2em; margin-top: 20px; width: 100%; transition: background-color 0.3s ease; }
+    .submit-button:disabled { background-color: #6c757d; cursor: not-allowed; }
+    .compare-link { display: block; margin-top: 20px; color: #007bff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <h1>{{ t['analyze_label'] }}</h1>
+    <p>{{ t['upload_clear_image'] }}</p>
+
+    <form id="upload-form" action="{{ url_for('analyze') }}" method="POST" enctype="multipart/form-data" onsubmit="return handleAnalysisSubmit(event)">
+        <label for="file-upload" class="file-input-label">{{ t['choose_label_image'] }}</label>
+        <input type="file" name="file" id="file-upload" accept="image/*" required onchange="displayFileName()">
+        <div id="file-status" class="file-status">{{ t['no_file_chosen'] }}</div>
+        <button type="submit" id="submit-button" class="submit-button">{{ t['analyze_product'] }}</button>
+    </form>
+
+    <a href="{{ url_for('compare') }}" class="compare-link">{{ t['compare_two_products'] }}</a>
+</div>
+
+<script>
+    const submitButton = document.getElementById('submit-button');
+    const fileInput = document.getElementById('file-upload');
+
+    function handleAnalysisSubmit(event) {
+        const isLoggedIn = {{ is_logged_in|tojson }};
+        if (!isLoggedIn) {
+            event.preventDefault();
+            showToast("{{ t['login_required_analyze'] }}", 'error');
+            openAuthModal("{{ url_for('login') }}");
+            return false;
+        }
+        if (fileInput.files.length > 0) {
+            submitButton.disabled = true;
+            submitButton.textContent = "{{ t['analyzing'] }}";
+            return true;
+        }
+        return false;
+    }
+
+    function displayFileName() {
+        const fileStatus = document.getElementById('file-status');
+        if (fileInput.files.length > 0) {
+            fileStatus.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg><span>${fileInput.files[0].name}</span>`;
+            fileStatus.classList.add('file-added');
+        } else {
+            fileStatus.textContent = "{{ t['no_file_chosen'] }}";
+            fileStatus.classList.remove('file-added');
+        }
+    }
+</script>
+{% endblock %}

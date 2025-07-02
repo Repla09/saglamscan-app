@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Sensitive Files
+serviceAccountKey.json
+*.pem
+*.key
+
+# OS / Editor specific
+.DS_Store
+.idea/
+
+# Application-specific folders
+uploads/
+processed_images/

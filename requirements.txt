@@ -1,0 +1,5 @@
+Flask
+Pillow
+firebase-admin
+google-generativeai
+gunicorn

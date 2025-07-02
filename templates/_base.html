@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ t['ai_nutrition_analyzer'] }}{% endblock %} - SaglamScan</title>
+    <!-- FIX: Using local favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary-color: #4CAF50; --secondary-color: #607D8B; --background-light: #f1f8e9; --success-color: #2e7d32; --error-color: #c62828;}
+        body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--background-light); }
+        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .navbar-left, .navbar-right { display: flex; align-items: center; gap: 15px; }
+        .navbar a { color: #333; text-decoration: none; padding: 14px 16px; font-weight: 600; cursor: pointer; border-radius: 4px; }
+
+        .navbar-brand img {
+            height: 28px;
+            width: auto;
+            vertical-align: middle;
+        }
+
+        .navbar a:hover { background-color: #f1f1f1; }
+        .content { padding: 20px; }
+        #toast-container { position: fixed; top: 80px; right: 20px; z-index: 1002; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 15px 25px; color: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: 600; opacity: 0; transform: translateX(100%); transition: all 0.5s ease-in-out; }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.toast-success { background-color: var(--success-color); }
+        .toast.toast-error { background-color: var(--error-color); }
+        #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); z-index: 1001; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        #modal-overlay.active { display: flex; opacity: 1; }
+        #modal-container { background-color: white; border-radius: 12px; max-width: 450px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative; transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        #modal-overlay.active #modal-container { transform: scale(1); }
+        #modal-content { padding: 0; }
+        .close-modal { position: absolute; top: 10px; right: 15px; font-size: 2.5em; line-height: 1; cursor: pointer; color: #aaa; }
+        .close-modal:hover { color: #333; }
+        .user-menu, .language-switcher { position: relative; display: inline-block; }
+        .user-button { background: none; border: none; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: 'Roboto', sans-serif; font-weight: 600; color: #333; padding: 14px 16px; border-radius: 4px; }
+        .user-button:hover { background-color: #f1f1f1; }
+        .user-icon { width: 24px; height: 24px; }
+        .dropdown-content { display: none; position: absolute; background-color: white; min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 1; right: 0; border-radius: 8px; overflow: hidden; }
+        .dropdown-content a { color: black; padding: 12px 16px; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+        .user-menu:hover .dropdown-content, .language-switcher:hover .dropdown-content { display: block; }
+        .verification-banner { background-color: #fff3e0; border-bottom: 2px solid #ffcc80; padding: 10px 20px; text-align: center; font-weight: 500; color: #e65100; }
+        .verification-banner button { background-color: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-left: 15px; font-weight: 600; }
+        .lang-button { background-color: transparent; border: 2px solid #ddd; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 0.9em; font-weight: 700; }
+        .lang-button:hover { background-color: #f0f0f0; }
+        .flag-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body data-is-verified="{{ email_verified|tojson }}">
+    {% if user_name and not email_verified %}
+    <div class="verification-banner" id="verification-banner">
+        {{ t['email_not_verified'] }}
+        <button onclick="sendVerificationEmail()">{{ t['resend_email'] }}</button>
+    </div>
+    {% endif %}
+    <nav class="navbar">
+        <div class="navbar-left">
+             <a href="{{ url_for('home') }}" class="navbar-brand">
+                <!-- FIX: Using local logo -->
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SaglamScan Logo">
+             </a>
+             <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
+        </div>
+        <div class="navbar-right">
+            <div class="language-switcher">
+                <button class="lang-button">
+                    {% if lang == 'az' %}
+                        <img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/az.svg" alt="Azerbaijani" class="flag-icon">
+                        <span>AZ</span>
+                    {% else %}
+                        <img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" alt="English" class="flag-icon">
+                        <span>EN</span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('set_language', lang='az') }}">
+                        <img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/az.svg" class="flag-icon">
+                        <span>{{t['azerbaijani']}}</span>
+                    </a>
+                    <a href="{{ url_for('set_language', lang='en') }}">
+                        <img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" class="flag-icon">
+                        <span>{{t['english']}}</span>
+                    </a>
+                </div>
+            </div>
+
+            {% if user_name %}
+                <div class="user-menu">
+                    <button class="user-button">
+                        <svg class="user-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12,12.5c3.31,0,6-2.69,6-6s-2.69-6-6-6S6,3.19,6,6.5S8.69,12.5,12,12.5z M12,2.5c2.21,0,4,1.79,4,4s-1.79,4-4,4s-4-1.79-4-4S9.79,2.5,12,2.5z" /><path d="M12,14.5c-4.67,0-10,2.34-10,5v2h20v-2C22,16.84,16.67,14.5,12,14.5z M4.34,19.5c0.84-1.63,3.4-2.5,7.66-2.5s6.82,0.87,7.66,2.5H4.34z" /></svg>
+                        <span>{{ user_name }}</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('account') }}">{{ t['my_account'] }}</a>
+                        <a href="{{ url_for('history') }}">{{ t['scan_history'] }}</a>
+                        <a id="logout-link" href="{{ url_for('logout') }}">{{ t['logout'] }}</a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="navbar-links">
+                    <a id="signup-link" href="{{ url_for('signup') }}">{{ t['sign_up'] }}</a>
+                    <a id="login-link" href="{{ url_for('login') }}">{{ t['login'] }}</a>
+                </div>
+            {% endif %}
+        </div>
+    </nav>
+    <main class="content">{% block content %}{% endblock %}</main>
+    <div id="modal-overlay"><div id="modal-container"><span class="close-modal" onclick="closeAuthModal()">×</span><div id="modal-content"></div></div></div>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <div id="toast-container"></div>
+    <script>
+        const firebaseConfig = { apiKey: "***REMOVED***", authDomain: "nutrition-1366d.firebaseapp.com", projectId: "nutrition-1366d", storageBucket: "nutrition-1366d.firebasestorage.app", messagingSenderId: "667763097330", appId: "1:667763097330:web:401e196cbfe19c8c49da6b" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const toastContainer = document.getElementById('toast-container');
+        function showToast(message, category = 'success') { const toast = document.createElement('div'); toast.className = `toast toast-${category}`; toast.textContent = message; toastContainer.appendChild(toast); setTimeout(() => { toast.classList.add('show'); }, 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000); }
+        const modalOverlay = document.getElementById('modal-overlay'); const modalContent = document.getElementById('modal-content');
+        function closeAuthModal() { modalOverlay.classList.remove('active'); modalContent.innerHTML = ''; }
+        function executeScriptsInContainer(container) { const scripts = Array.from(container.getElementsByTagName('script')); scripts.forEach(oldScript => { const newScript = document.createElement('script'); Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value)); newScript.appendChild(document.createTextNode(oldScript.innerHTML)); oldScript.parentNode.replaceChild(newScript, oldScript); }); }
+        async function openAuthModal(url) { try { const response = await fetch(url); if (!response.ok) throw new Error('Failed to load form'); modalContent.innerHTML = await response.text(); executeScriptsInContainer(modalContent); modalOverlay.classList.add('active'); } catch (error) { console.error('Error opening modal:', error); showToast("Could not load the form.", 'error'); } }
+        const loginLink = document.getElementById('login-link'); if (loginLink) loginLink.addEventListener('click', e => { e.preventDefault(); openAuthModal(loginLink.href); });
+        const signupLink = document.getElementById('signup-link'); if (signupLink) signupLink.addEventListener('click', e => { e.preventDefault(); openAuthModal(signupLink.href); });
+        modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeAuthModal(); });
+        function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
+        const logoutLink = document.getElementById('logout-link'); if (logoutLink) { logoutLink.addEventListener('click', (e) => { e.preventDefault(); auth.signOut().then(() => { window.location.href = logoutLink.href; }).catch((error) => { console.error('Logout Error', error); window.location.href = logoutLink.href; }); }); }
+        auth.onIdTokenChanged(async (user) => { if (user) { const emailVerifiedInSession = document.body.dataset.isVerified === 'true'; if (user.emailVerified && !emailVerifiedInSession) { console.log('Email verified! Refreshing session...'); const idToken = await user.getIdToken(true); const hiddenForm = document.createElement('form'); hiddenForm.method = 'POST'; hiddenForm.action = "{{ url_for('session_login') }}"; const tokenInput = document.createElement('input'); tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken; hiddenForm.appendChild(tokenInput); document.body.appendChild(hiddenForm); hiddenForm.submit(); } } });
+        {% with messages = get_flashed_messages(with_categories=True) %}{% if messages %}{% for category, message in messages %}showToast("{{ message|safe }}", "{{ category }}");{% endfor %}{% endif %}{% endwith %}
+    </script>
+</body>
+</html>

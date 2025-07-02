@@ -1,0 +1,201 @@
+{% extends "_base.html" %}
+{% block title %}{{ t['analysis_result'] }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+    :root {
+        --primary-gradient: linear-gradient(135deg, #26a69a 0%, #00796b 100%);
+        --card-gradient: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        --shadow-primary: 0 25px 50px rgba(0, 121, 107, 0.25);
+        --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 15px 60px rgba(0, 0, 0, 0.15);
+        --shadow-intense: 0 30px 80px rgba(0, 0, 0, 0.2);
+        --grade-a: linear-gradient(135deg, #4CAF50, #66BB6A, #81C784);
+        --grade-b: linear-gradient(135deg, #8BC34A, #9CCC65, #AED581);
+        --grade-c: linear-gradient(135deg, #FFC107, #FFD54F, #FFE082);
+        --grade-d: linear-gradient(135deg, #FF9800, #FFB74D, #FFCC80);
+        --grade-f: linear-gradient(135deg, #F44336, #EF5350, #E57373);
+        --text-primary: #1a202c;
+        --text-secondary: #4a5568;
+        --border-color: #e2e8f0;
+        --background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        --summary-bg: linear-gradient(135deg, #e8eaf6, #e3f2fd);
+        --summary-border: #9fa8da;
+    }
+    * { box-sizing: border-box; }
+    body { background: var(--background); }
+    .content { padding: 2rem; max-width: 1200px; margin: 0 auto; animation: fadeInUp 0.8s ease-out; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+    .header-section { background: var(--primary-gradient); color: white; padding: 4rem 2rem; text-align: center; border-radius: 32px; margin-bottom: 2rem; box-shadow: var(--shadow-primary); position: relative; overflow: hidden; }
+    .header-section h1 { font-size: 3.2rem; font-weight: 900; margin: 0; position: relative; z-index: 1; text-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+    .ai-summary-section { background: var(--summary-bg); border-left: 6px solid var(--summary-border); border-radius: 16px; padding: 1.5rem 2rem; margin: 0 auto 2.5rem auto; box-shadow: var(--shadow-card); max-width: 900px; }
+    .ai-summary-section h2 { font-size: 1.5rem; color: #3f51b5; margin-top: 0; display: flex; align-items: center; gap: 12px; font-weight: 700; }
+    .ai-summary-section p { font-size: 1.1rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 0; }
+    .main-results { max-width: 700px; margin: 0 auto 3rem auto; }
+    .health-grade-display, .calories-display { padding: 5rem 2rem; border-radius: 28px; text-align: center; box-shadow: var(--shadow-intense); position: relative; overflow: hidden; margin-bottom: 2rem; }
+    .health-grade-display { color: white; position: relative; z-index: 1; border: 4px solid rgba(255,255,255,0.2); }
+    .grade-A { background: var(--grade-a); } .grade-B { background: var(--grade-b); } .grade-C { background: var(--grade-c); color: #333; } .grade-D { background: var(--grade-d); color: #333; } .grade-F { background: var(--grade-f); }
+    .grade-letter { font-size: 8rem; font-weight: 900; line-height: 1; text-shadow: 0 6px 12px rgba(0,0,0,0.4); margin: 1rem 0; display: block; }
+    .health-grade-display h2, .calories-display h2 { font-size: 1.8rem; margin: 0 0 1.5rem; font-weight: 700; text-transform: uppercase; }
+    .calories-display { background: linear-gradient(145deg, #e3f2fd, #bbdefb, #90caf9); color: #0d47a1; border: 4px solid rgba(13, 71, 161, 0.2); }
+    .calorie-value { font-size: 6rem; font-weight: 900; line-height: 1; margin: 1rem 0; text-shadow: 0 4px 8px rgba(0,0,0,0.15); display: block; }
+    .serving-info { font-size: 1.1rem; opacity: 0.9; margin-top: 1.5rem; font-weight: 500; }
+    .alerts-section { background: linear-gradient(145deg, #fff3e0, #ffeaa7, #ffe082); border: none; border-left: 8px solid #ff9800; padding: 2.5rem; border-radius: 20px; margin-bottom: 3rem; box-shadow: var(--shadow-card); animation: slideInRight 0.6s ease-out; position: relative; overflow: hidden; }
+    .alerts-section h2 { margin-top: 0; color: #e65100; font-weight: 700; display: flex; align-items: center; gap: 15px; font-size: 1.8rem; }
+    .alert-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 15px; margin-top: 1.5rem; }
+    .alert-item { background: linear-gradient(135deg, #ffcc80, #ffb74d, #ffa726); color: #bf360c; padding: 12px 20px; border-radius: 25px; font-weight: 700; font-size: 1rem; box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4); }
+    .calculator-toggle { background: var(--primary-gradient); color: white; border: none; padding: 1.5rem 3rem; border-radius: 60px; font-weight: 700; cursor: pointer; text-align: center; margin: 0 auto 2rem; box-shadow: var(--shadow-card); font-size: 1.2rem; display: block; }
+    .calculator-content { display: none; background: var(--card-gradient); padding: 3rem; border-radius: 20px; text-align: center; margin-bottom: 3rem; box-shadow: var(--shadow-card); border: 2px solid var(--border-color); }
+    .calculator-content input { width: 150px; padding: 15px 20px; border-radius: 15px; border: 3px solid var(--border-color); font-size: 1.4rem; text-align: center; font-weight: 700; }
+    .calculator-content label { font-weight: 700; color: var(--text-primary); font-size: 1.3rem; }
+    .ingredient-section { background: var(--card-gradient); border: 2px solid var(--border-color); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-card); margin: 3rem auto; max-width: 90%; }
+    .ingredient-list-container { padding: 2.5rem; color: var(--text-secondary); line-height: 1.8; word-break: break-word;}
+    .nutrient-sections-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 2.5rem; margin-top: 3rem; }
+    .nutrient-group { background: var(--card-gradient); border: 2px solid var(--border-color); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-card); transition: all 0.4s ease; animation: slideInRight 0.8s ease-out; }
+    .nutrient-group:hover { transform: translateY(-6px); box-shadow: var(--shadow-hover); border-color: #26a69a; }
+    .nutrient-group-header { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0; padding: 2rem 2.5rem; background: linear-gradient(135deg, #f8fafc, #e2e8f0); border-bottom: 2px solid var(--border-color); text-transform: uppercase; }
+    .nutrient-list { padding: 1.5rem 2.5rem 2.5rem; }
+    .nutrient-item { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 0; border-bottom: 1px solid #f1f5f9; border-left: 5px solid transparent; padding-left: 1.2rem; margin-left: -1.2rem; transition: all 0.3s ease; border-radius: 0 10px 10px 0; position: relative; cursor: help; }
+    .nutrient-item:last-child { border-bottom: none; }
+    .nutrient-item:hover { background: rgba(102, 126, 234, 0.08); transform: translateX(6px); }
+    .nutrient-item.positive { border-left-color: #4CAF50; } .positive strong::before { background: #4CAF50; } .nutrient-item.positive:hover { background: rgba(76, 175, 80, 0.12); }
+    .nutrient-item.negative { border-left-color: #F44336; } .negative strong::before { background: #F44336; } .nutrient-item.negative:hover { background: rgba(244, 67, 54, 0.12); }
+    .nutrient-item.neutral { border-left-color: #9E9E9E; } .neutral strong::before { background: #9E9E9E; } .nutrient-item.neutral:hover { background: rgba(158, 158, 158, 0.12); }
+    .nutrient-item strong { display: flex; align-items: center; gap: 12px; font-weight: 700; color: var(--text-primary); font-size: 1.1rem; }
+    .nutrient-item strong::before { content: ''; width: 10px; height: 10px; border-radius: 50%; }
+    .nutrient-item span { font-weight: 800; color: var(--text-secondary); font-size: 1.1rem; background: linear-gradient(135deg, #f1f5f9, #e2e8f0); padding: 8px 16px; border-radius: 25px; }
+    .nutrient-fallback { font-style: italic; color: #6c757d; padding: 2rem; text-align: center; }
+    .error-block { background: linear-gradient(145deg, #fff5f5, #fed7d7); border-left: 6px solid #F44336; padding: 3rem 2rem; border-radius: 16px; text-align: center; }
+    .error-block h2 { color: #c53030; }
+    .tooltip { position: fixed; background-color: #2d3748; color: white; padding: 15px 20px; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; max-width: 300px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.3); opacity: 0; visibility: hidden; transition: opacity 0.2s ease-in-out; pointer-events: none; }
+    .tooltip.show { opacity: 1; visibility: visible; }
+    .tooltip h4 { margin: 0 0 8px 0; color: #90cdf4; font-weight: 700; }
+    .tooltip p { margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content">
+    <div class="header-section"><h1>✨ {{ t['analysis_for'] }} {{ (parsed_data.original_filename or t['your_product'])|e }}</h1></div>
+
+    {% if error_message %}
+    <div class="error-block">
+        <h2>❌ {{ t['analysis_failed'] }}</h2>
+        <p><strong>{{ t['reason'] }}:</strong> {{ error_message|e }}</p>
+    </div>
+    {% elif parsed_data %}
+        {% if parsed_data.ai_summary and parsed_data.ai_summary != 'N/A' %}
+        <div class="ai-summary-section">
+            <h2><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>{{ t['ai_summary'] }}</h2>
+            <p>{{ parsed_data.ai_summary }}</p>
+        </div>
+        {% endif %}
+
+        {% if (parsed_data.allergens and parsed_data.allergens|length > 0) or (parsed_data.warnings and parsed_data.warnings|length > 0) %}
+        <div class="alerts-section">
+            <h2><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>🚨 {{ t['ingredient_alerts'] }}</h2>
+            {% if parsed_data.allergens and parsed_data.allergens|length > 0 %}
+                <h4>⚠️ {{ t['potential_allergens'] }}</h4>
+                <ul class="alert-list">{% for item in parsed_data.allergens %}
+                    {# FIX: Use .lower to make lookup case-insensitive #}
+                    <li class="alert-item">{{ t.ingredient_translations.get(item|lower, item)|e }}</li>
+                {% endfor %}</ul>
+            {% endif %}
+            {% if parsed_data.warnings and parsed_data.warnings|length > 0 %}
+                <h4 style="margin-top: 20px;">⚠️ {{ t['ingredients_concern'] }}</h4>
+                <ul class="alert-list">{% for item in parsed_data.warnings %}
+                    {# FIX: Use .lower to make lookup case-insensitive #}
+                    <li class="alert-item">{{ t.ingredient_translations.get(item|lower, item)|e }}</li>
+                {% endfor %}</ul>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="main-results">
+            <div class="health-grade-display grade-{{ parsed_data.health_grade }}"><h2>{{ t['health_grade'] }}</h2><div class="grade-letter">{{ parsed_data.health_grade }}</div></div>
+            <div class="calories-display">
+                <h2>{{ t['calories'] }}</h2>
+                <div class="calorie-value" id="display-calories" data-base-value="{{ parsed_data.calories|e }}">{{ parsed_data.calories|e }}</div>
+                <div class="serving-info">
+                    {% if parsed_data.serving_size and parsed_data.serving_size != 'N/A' %}<strong>{{ t['serving_size'] }}</strong> {{ parsed_data.serving_size|e }}{% endif %}
+                    {% if parsed_data.servings_per_container and parsed_data.servings_per_container != 'N/A' %}<br><em>{{ t['servings_container']|format(parsed_data.servings_per_container|e) }}</em>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <button class="calculator-toggle" onclick="toggleCalculator()">{{ t['calculate_portion'] }}</button>
+        <div class="calculator-content" id="calculator-content"><label for="serving-input">{{ t['number_servings'] }}:</label><input type="number" id="serving-input" value="1" min="0.1" step="0.1" oninput="calculateTotals()"></div>
+
+        <div class="nutrient-sections-grid">
+            {% set nutrient_groups = { t['macronutrients']: ['protein', 'total_fat', 'saturated_fat', 'trans_fat'], t['carbohydrates']: ['total_carbohydrates', 'dietary_fiber', 'total_sugars', 'added_sugars'], t['minerals_more']: ['sodium', 'cholesterol', 'potassium'], t['vitamins']: ['vit_d', 'calcium', 'iron'] } %}
+            {% for group_name, nutrient_keys in nutrient_groups.items() %}
+                <div class="nutrient-group">
+                    <h3 class="nutrient-group-header">{{ group_name }}</h3>
+                    <div class="nutrient-list">
+                        {# FIX: Create a list of found nutrients first to avoid the bug #}
+                        {% set found_nutrients = [] %}
+                        {% for key in nutrient_keys %}
+                            {% if parsed_data.get(key) and parsed_data[key] != 'N/A' %}
+                                {% do found_nutrients.append(key) %}
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if found_nutrients %}
+                            {% for key in found_nutrients %}
+                            <div class="nutrient-item {{ nutrient_classes.get(key, 'neutral') }}" data-nutrient="{{ key }}">
+                                <strong>{{ t.get(key, key.replace('_', ' ')|title) }}</strong>
+                                <span id="nutrient-{{ key }}" data-base-value="{{ parsed_data.get(key)|e }}">{{ parsed_data.get(key)|e }}</span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="nutrient-fallback">{{ t['no_nutrients_found'] }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="ingredient-section">
+            <div class="nutrient-group-header">{{ t['full_ingredient_list'] }}</div>
+            <div class="ingredient-list-container">
+                <p>{{ parsed_data.ingredient_list or t['ingredient_list_not_found'] }}</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+<div class="tooltip" id="nutrient-tooltip"></div>
+<script>
+    const nutrientInfo = {{ nutrient_explanations|tojson|safe }};
+    const nutrientTranslations = {{ t|tojson|safe }};
+    const tooltip = document.getElementById('nutrient-tooltip');
+
+    function showTooltip(event, nutrientKey) {
+        if (nutrientInfo && nutrientInfo[nutrientKey]) {
+            const nutrientName = nutrientTranslations[nutrientKey] || nutrientKey.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+            tooltip.innerHTML = `<h4>${nutrientName}</h4><p>${nutrientInfo[nutrientKey]}</p>`;
+            tooltip.style.left = `${event.clientX}px`;
+            tooltip.style.top = `${event.clientY}px`;
+            tooltip.style.transform = 'translate(-50%, calc(-100% - 10px))';
+            tooltip.classList.add('show');
+        }
+    }
+    function hideTooltip() { tooltip.classList.remove('show'); }
+
+    document.querySelectorAll(".nutrient-item").forEach(item => {
+        let nutrientKey = item.getAttribute("data-nutrient");
+        item.addEventListener("mouseenter", e => showTooltip(e, nutrientKey));
+        item.addEventListener("mouseleave", hideTooltip);
+        item.addEventListener("mousemove", e => {
+            if(tooltip.classList.contains('show')) {
+                tooltip.style.left = `${e.clientX}px`;
+                tooltip.style.top = `${e.clientY}px`;
+            }
+        });
+    });
+
+    function toggleCalculator(){ const e=document.getElementById("calculator-content"),t=document.querySelector(".calculator-toggle"); if(e.style.display==="block"){e.style.display="none";t.textContent="{{ t['calculate_portion'] }}"}else{e.style.display="block";t.textContent="{{ t['hide_calculator'] }}"}}
+    function calculateTotals(){const e=parseFloat(document.getElementById("serving-input").value)||0;document.querySelectorAll("[data-base-value]").forEach(t=>{const n=t.getAttribute("data-base-value");if(n&&"N/A"!==n){const a=parseFloat(n.replace(/[^\d.-]/g,""))||0,o=n.replace(/[\d.-]/g,"").trim();let l=a*e;t.textContent=`${l%1==0?l.toFixed(0):l.toFixed(1)}${o?" "+o:""}`}})}
+</script>
+{% endblock %}
