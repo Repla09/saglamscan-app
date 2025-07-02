@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 # --- App Configuration ---
 class Config:
-    # Use an environment variable for the secret key, with a fallback for local dev
     SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(16)
     UPLOAD_FOLDER = 'uploads'
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
@@ -36,17 +35,18 @@ app.config.from_object(Config)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 app.jinja_env.add_extension('jinja2.ext.do')
 
-# --- Firebase Initialization ---
+# --- Securely load API Keys from Environment Variables ---
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+FIREBASE_WEB_API_KEY = os.environ.get('FIREBASE_WEB_API_KEY')  # For frontend auth
+
+# --- Firebase Initialization (Backend) ---
 try:
-    # IMPORTANT: Securely load Firebase credentials
     firebase_service_account_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON')
     if firebase_service_account_json:
-        # On the server, load from environment variable
         cred_dict = json.loads(firebase_service_account_json)
         cred = credentials.Certificate(cred_dict)
     else:
-        # For local development, load from file (make sure it's in .gitignore!)
-        logger.info("Loading Firebase credentials from serviceAccountKey.json for local development.")
+        logger.warning("Loading Firebase credentials from serviceAccountKey.json for local development.")
         cred = credentials.Certificate('serviceAccountKey.json')
 
     if not firebase_admin._apps:
@@ -60,8 +60,6 @@ except Exception as e:
 
 # --- Gemini API Initialization ---
 try:
-    # IMPORTANT: Use environment variable for the API key
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
     if GEMINI_API_KEY:
         genai.configure(api_key=GEMINI_API_KEY)
         gemini_vision_model = genai.GenerativeModel('gemini-1.5-flash')
@@ -75,7 +73,6 @@ except Exception as e:
     logger.error(f"Gemini initialization failed: {e}")
 
 # --- Nutrient Data & Helpers ---
-# ... (The rest of your app.py code is perfect, no more changes needed!)
 NUTRIENT_CLASSES = {'health_grade': 'neutral', 'calories': 'negative', 'total_fat': 'neutral',
                     'saturated_fat': 'negative', 'trans_fat': 'negative', 'cholesterol': 'negative',
                     'sodium': 'negative', 'total_carbohydrates': 'neutral', 'dietary_fiber': 'positive',
@@ -267,8 +264,14 @@ def get_ai_comparison(product1_data, product2_data):
 
 @app.context_processor
 def inject_globals():
-    return {'lang': g.lang, 't': g.t, 'user_name': session.get('user_name'),
-            'email_verified': session.get('email_verified')}
+    """Injects variables into all templates."""
+    return {
+        'lang': g.lang,
+        't': g.t,
+        'user_name': session.get('user_name'),
+        'email_verified': session.get('email_verified'),
+        'firebase_web_api_key': FIREBASE_WEB_API_KEY  # <-- THE FIX IS HERE
+    }
 
 
 @app.before_request
@@ -349,7 +352,7 @@ def set_language(lang):
             params = parse_qs(parsed_url.query)
             file1, file2 = params.get('file1', [None])[0], params.get('file2', [None])[0]
             if file1 and file2: response = redirect(url_for('compare', file1=file1, file2=file2))
-        else:  # Safe to redirect back to other pages like /history, /account, /
+        else:
             response = redirect(request.referrer)
 
     response.set_cookie('lang', lang, max_age=365 * 24 * 60 * 60)

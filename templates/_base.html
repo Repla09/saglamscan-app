@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ t['ai_nutrition_analyzer'] }}{% endblock %} - SaglamScan</title>
-    <!-- FIX: Using local favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -60,7 +59,6 @@
     <nav class="navbar">
         <div class="navbar-left">
              <a href="{{ url_for('home') }}" class="navbar-brand">
-                <!-- FIX: Using local logo -->
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SaglamScan Logo">
              </a>
              <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
@@ -114,7 +112,19 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <div id="toast-container"></div>
     <script>
-        const firebaseConfig = { apiKey: "***REMOVED***", authDomain: "nutrition-1366d.firebaseapp.com", projectId: "nutrition-1366d", storageBucket: "nutrition-1366d.firebasestorage.app", messagingSenderId: "667763097330", appId: "1:667763097330:web:401e196cbfe19c8c49da6b" };
+        // --- THE FIX IS HERE ---
+        // This configuration is now SECURE because the API key is injected by the server
+        // and is NOT stored in the Git repository.
+        const firebaseConfig = {
+            apiKey: "{{ firebase_web_api_key }}",
+            authDomain: "nutrition-1366d.firebaseapp.com",
+            projectId: "nutrition-1366d",
+            storageBucket: "nutrition-1366d.appspot.com",
+            messagingSenderId: "667763097330",
+            appId: "1:667763097330:web:401e196cbfe19c8c49da6b"
+        };
+        // --- END OF FIX ---
+
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const toastContainer = document.getElementById('toast-container');
