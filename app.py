@@ -270,7 +270,7 @@ def inject_globals():
         't': g.t,
         'user_name': session.get('user_name'),
         'email_verified': session.get('email_verified'),
-        'firebase_web_api_key': FIREBASE_WEB_API_KEY  # <-- THE FIX IS HERE
+        'firebase_web_api_key': FIREBASE_WEB_API_KEY
     }
 
 
@@ -370,6 +370,17 @@ def signup(): return render_template('signup.html')
 
 @app.route('/login', methods=['GET'])
 def login(): return render_template('login.html')
+
+
+# --- NEW ROUTE FOR EMAIL VERIFICATION LANDING PAGE ---
+@app.route('/verified')
+def verified():
+    # We can flash a more permanent success message here if we want
+    flash("Your email has been verified! Welcome to SaglamScan.", "success")
+    return render_template('verified.html')
+
+
+# --- END OF NEW ROUTE ---
 
 
 @app.route('/session_login', methods=['POST'])
