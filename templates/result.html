@@ -73,6 +73,54 @@
     .tooltip.show { opacity: 1; visibility: visible; }
     .tooltip h4 { margin: 0 0 8px 0; color: #90cdf4; font-weight: 700; }
     .tooltip p { margin: 0; }
+
+    /* --- MOBILE STYLES --- */
+    @media (max-width: 768px) {
+        .content {
+            padding: 1rem;
+        }
+        .header-section {
+            padding: 2.5rem 1rem;
+            border-radius: 24px;
+        }
+        .header-section h1 {
+            font-size: 2rem;
+        }
+        .ai-summary-section {
+            padding: 1rem 1.5rem;
+        }
+        .health-grade-display, .calories-display {
+            padding: 3rem 1rem;
+            border-radius: 20px;
+        }
+        .grade-letter {
+            font-size: 6rem;
+        }
+        .calorie-value {
+            font-size: 4.5rem;
+        }
+        .alerts-section {
+            padding: 1.5rem;
+            border-radius: 16px;
+        }
+        .alerts-section h2 {
+            font-size: 1.5rem;
+        }
+        .calculator-toggle {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+        }
+        .nutrient-sections-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        .nutrient-group-header, .nutrient-list {
+            padding: 1.5rem;
+        }
+        .ingredient-section {
+            max-width: 100%;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -99,14 +147,12 @@
             {% if parsed_data.allergens and parsed_data.allergens|length > 0 %}
                 <h4>⚠️ {{ t['potential_allergens'] }}</h4>
                 <ul class="alert-list">{% for item in parsed_data.allergens %}
-                    {# FIX: Use .lower to make lookup case-insensitive #}
                     <li class="alert-item">{{ t.ingredient_translations.get(item|lower, item)|e }}</li>
                 {% endfor %}</ul>
             {% endif %}
             {% if parsed_data.warnings and parsed_data.warnings|length > 0 %}
                 <h4 style="margin-top: 20px;">⚠️ {{ t['ingredients_concern'] }}</h4>
                 <ul class="alert-list">{% for item in parsed_data.warnings %}
-                    {# FIX: Use .lower to make lookup case-insensitive #}
                     <li class="alert-item">{{ t.ingredient_translations.get(item|lower, item)|e }}</li>
                 {% endfor %}</ul>
             {% endif %}
@@ -134,7 +180,6 @@
                 <div class="nutrient-group">
                     <h3 class="nutrient-group-header">{{ group_name }}</h3>
                     <div class="nutrient-list">
-                        {# FIX: Create a list of found nutrients first to avoid the bug #}
                         {% set found_nutrients = [] %}
                         {% for key in nutrient_keys %}
                             {% if parsed_data.get(key) and parsed_data[key] != 'N/A' %}

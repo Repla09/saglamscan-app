@@ -33,6 +33,26 @@
     .nutrient-comparison-row strong { font-size: 1em; color: #333; }
     .nutrient-comparison-row span { font-size: 1.1em; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
     .value-winner { background-color: #e8f5e9; color: #2e7d32; } .value-neutral { background-color: #f5f5f5; color: #444; }
+
+    /* --- MOBILE STYLES --- */
+    @media (max-width: 768px) {
+        .compare-container {
+            margin: 1rem auto;
+            padding: 0 15px;
+        }
+        .header-card {
+            padding: 25px;
+        }
+        .header-card h1 {
+            font-size: 2em;
+        }
+        .upload-grid, .comparison-grid {
+            grid-template-columns: 1fr;
+        }
+        .upload-card {
+            padding: 20px;
+        }
+    }
 </style>
 {% endblock %}
 

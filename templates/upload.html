@@ -14,6 +14,24 @@
     .submit-button { background-color: #007bff; color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-size: 1.2em; margin-top: 20px; width: 100%; transition: background-color 0.3s ease; }
     .submit-button:disabled { background-color: #6c757d; cursor: not-allowed; }
     .compare-link { display: block; margin-top: 20px; color: #007bff; }
+
+    /* --- MOBILE STYLES --- */
+    @media (max-width: 600px) {
+        .upload-container {
+            padding: 25px 20px;
+            max-width: none;
+            margin: 0 15px;
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+        .upload-container h1 {
+            font-size: 1.8em;
+        }
+        .submit-button, .file-input-label {
+            padding: 15px 20px;
+            font-size: 1em;
+        }
+    }
 </style>
 {% endblock %}
 
