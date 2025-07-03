@@ -10,16 +10,11 @@
     <style>
         :root { --primary-color: #4CAF50; --secondary-color: #607D8B; --background-light: #f1f8e9; --success-color: #2e7d32; --error-color: #c62828;}
         body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--background-light); }
-        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
-        .navbar-left, .navbar-right { display: flex; align-items: center; gap: 15px; }
+        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; height: 60px; }
+        .navbar-left { display: flex; align-items: center; gap: 15px; }
+        .navbar-right { display: flex; align-items: center; gap: 15px; }
         .navbar a { color: #333; text-decoration: none; padding: 14px 16px; font-weight: 600; cursor: pointer; border-radius: 4px; }
-
-        .navbar-brand img {
-            height: 28px;
-            width: auto;
-            vertical-align: middle;
-        }
-
+        .navbar-brand img { height: 28px; width: auto; vertical-align: middle; }
         .navbar a:hover { background-color: #f1f1f1; }
         .content { padding: 20px; }
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 1002; display: flex; flex-direction: column; gap: 10px; }
@@ -47,18 +42,39 @@
         .lang-button:hover { background-color: #f0f0f0; }
         .flag-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 
-        /* --- MOBILE NAVBAR STYLES --- */
-        @media (max-width: 650px) {
-            .navbar {
-                flex-direction: column;
-                padding: 10px;
-            }
-            .navbar-left, .navbar-right {
-                width: 100%;
-                justify-content: center;
-            }
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 2rem;
+            height: 2rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 10;
+        }
+        .hamburger:focus { outline: none; }
+        .hamburger div { width: 2rem; height: 0.25rem; background: #333; border-radius: 10px; transition: all 0.3s linear; position: relative; transform-origin: 1px; }
+
+        @media (max-width: 768px) {
             .navbar-right {
-                margin-top: 10px;
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                position: absolute;
+                top: 60px;
+                right: 0;
+                width: 100%;
+                background-color: white;
+                box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+                padding: 1rem 0;
+            }
+            .navbar-right.active {
+                display: flex;
+            }
+            .hamburger {
+                display: flex;
             }
         }
     </style>
@@ -71,6 +87,7 @@
         <button onclick="sendVerificationEmail()">{{ t['resend_email'] }}</button>
     </div>
     {% endif %}
+
     <nav class="navbar">
         <div class="navbar-left">
              <a href="{{ url_for('home') }}" class="navbar-brand">
@@ -78,7 +95,14 @@
              </a>
              <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
         </div>
-        <div class="navbar-right">
+
+        <button class="hamburger" id="hamburger-button">
+            <div></div>
+            <div></div>
+            <div></div>
+        </button>
+
+        <div class="navbar-right" id="navbar-right-links">
             <div class="language-switcher">
                 <button class="lang-button">
                     {% if lang == 'az' %}
@@ -121,12 +145,19 @@
             {% endif %}
         </div>
     </nav>
+
     <main class="content">{% block content %}{% endblock %}</main>
     <div id="modal-overlay"><div id="modal-container"><span class="close-modal" onclick="closeAuthModal()">×</span><div id="modal-content"></div></div></div>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <div id="toast-container"></div>
     <script>
+        const hamburger = document.getElementById('hamburger-button');
+        const navLinks = document.getElementById('navbar-right-links');
+        hamburger.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+        });
+
         const firebaseConfig = {
             apiKey: "{{ firebase_web_api_key }}",
             authDomain: "nutrition-1366d.firebaseapp.com",

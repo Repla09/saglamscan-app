@@ -74,52 +74,20 @@
     .tooltip h4 { margin: 0 0 8px 0; color: #90cdf4; font-weight: 700; }
     .tooltip p { margin: 0; }
 
-    /* --- MOBILE STYLES --- */
     @media (max-width: 768px) {
-        .content {
-            padding: 1rem;
-        }
-        .header-section {
-            padding: 2.5rem 1rem;
-            border-radius: 24px;
-        }
-        .header-section h1 {
-            font-size: 2rem;
-        }
-        .ai-summary-section {
-            padding: 1rem 1.5rem;
-        }
-        .health-grade-display, .calories-display {
-            padding: 3rem 1rem;
-            border-radius: 20px;
-        }
-        .grade-letter {
-            font-size: 6rem;
-        }
-        .calorie-value {
-            font-size: 4.5rem;
-        }
-        .alerts-section {
-            padding: 1.5rem;
-            border-radius: 16px;
-        }
-        .alerts-section h2 {
-            font-size: 1.5rem;
-        }
-        .calculator-toggle {
-            padding: 1rem 2rem;
-            font-size: 1rem;
-        }
-        .nutrient-sections-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-        }
-        .nutrient-group-header, .nutrient-list {
-            padding: 1.5rem;
-        }
-        .ingredient-section {
-            max-width: 100%;
-        }
+        .content { padding: 1rem; }
+        .header-section { padding: 2.5rem 1rem; border-radius: 24px; }
+        .header-section h1 { font-size: 2rem; }
+        .ai-summary-section { padding: 1rem 1.5rem; }
+        .health-grade-display, .calories-display { padding: 3rem 1rem; border-radius: 20px; }
+        .grade-letter { font-size: 6rem; }
+        .calorie-value { font-size: 4.5rem; }
+        .alerts-section { padding: 1.5rem; border-radius: 16px; }
+        .alerts-section h2 { font-size: 1.5rem; }
+        .calculator-toggle { padding: 1rem 2rem; font-size: 1rem; }
+        .nutrient-sections-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+        .nutrient-group-header, .nutrient-list { padding: 1.5rem; }
+        .ingredient-section { max-width: 100%; }
     }
 </style>
 {% endblock %}
@@ -216,7 +184,16 @@
     const nutrientTranslations = {{ t|tojson|safe }};
     const tooltip = document.getElementById('nutrient-tooltip');
 
+    const isTouchDevice = () => {
+        return ('ontouchstart' in window) ||
+               (navigator.maxTouchPoints > 0) ||
+               (navigator.msMaxTouchPoints > 0);
+    }
+    const isMobile = isTouchDevice();
+
     function showTooltip(event, nutrientKey) {
+        if (isMobile) return;
+
         if (nutrientInfo && nutrientInfo[nutrientKey]) {
             const nutrientName = nutrientTranslations[nutrientKey] || nutrientKey.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
             tooltip.innerHTML = `<h4>${nutrientName}</h4><p>${nutrientInfo[nutrientKey]}</p>`;
