@@ -10,7 +10,7 @@
 <div class="auth-container">
     <h1>{{ t['login'] }}</h1>
     <!-- FIX: The form ID is corrected and it won't submit on its own -->
-    <form id="login-form-modal" class="auth-form">
+    <form id="login-form-modal" method="POST" class="auth-form">
         <input type="email" id="email-modal" name="email" placeholder="{{ t['email'] }}" required>
         <input type="password" id="password-modal" name="password" placeholder="{{ t['password'] }}" required>
         <button type="submit">{{ t['login'] }}</button>

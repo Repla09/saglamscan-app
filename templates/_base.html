@@ -112,9 +112,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <div id="toast-container"></div>
     <script>
-        // --- THE FIX IS HERE ---
-        // This configuration is now SECURE because the API key is injected by the server
-        // and is NOT stored in the Git repository.
         const firebaseConfig = {
             apiKey: "{{ firebase_web_api_key }}",
             authDomain: "nutrition-1366d.firebaseapp.com",
@@ -123,7 +120,6 @@
             messagingSenderId: "667763097330",
             appId: "1:667763097330:web:401e196cbfe19c8c49da6b"
         };
-        // --- END OF FIX ---
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
@@ -138,7 +134,34 @@
         modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeAuthModal(); });
         function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
         const logoutLink = document.getElementById('logout-link'); if (logoutLink) { logoutLink.addEventListener('click', (e) => { e.preventDefault(); auth.signOut().then(() => { window.location.href = logoutLink.href; }).catch((error) => { console.error('Logout Error', error); window.location.href = logoutLink.href; }); }); }
-        auth.onIdTokenChanged(async (user) => { if (user) { const emailVerifiedInSession = document.body.dataset.isVerified === 'true'; if (user.emailVerified && !emailVerifiedInSession) { console.log('Email verified! Refreshing session...'); const idToken = await user.getIdToken(true); const hiddenForm = document.createElement('form'); hiddenForm.method = 'POST'; hiddenForm.action = "{{ url_for('session_login') }}"; const tokenInput = document.createElement('input'); tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken; hiddenForm.appendChild(tokenInput); document.body.appendChild(hiddenForm); hiddenForm.submit(); } } });
+
+        // --- FIX FOR AUTOMATIC VERIFICATION REFRESH ---
+        auth.onIdTokenChanged(async (user) => {
+            if (user) {
+                const emailVerifiedInSession = document.body.dataset.isVerified === 'true';
+                if (user.emailVerified && !emailVerifiedInSession) {
+                    // The user's email is now verified, but our server session is stale.
+                    // Let's get a new ID token and force a session refresh by re-logging in.
+                    console.log('Email verified! Refreshing session...');
+                    const idToken = await user.getIdToken(true); // 'true' forces a refresh from Firebase servers
+
+                    const hiddenForm = document.createElement('form');
+                    hiddenForm.method = 'POST';
+                    hiddenForm.action = "{{ url_for('session_login') }}";
+
+                    const tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = 'id_token';
+                    tokenInput.value = idToken;
+                    hiddenForm.appendChild(tokenInput);
+
+                    document.body.appendChild(hiddenForm);
+                    hiddenForm.submit();
+                }
+            }
+        });
+        // --- END OF FIX ---
+
         {% with messages = get_flashed_messages(with_categories=True) %}{% if messages %}{% for category, message in messages %}showToast("{{ message|safe }}", "{{ category }}");{% endfor %}{% endif %}{% endwith %}
     </script>
 </body>
