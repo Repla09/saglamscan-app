@@ -1,5 +1,5 @@
 {% extends "_base.html" %}
-{% block title %}Email Verified{% endblock %}
+{% block title %}Email Verified!{% endblock %}
 
 {% block content %}
 <style>
@@ -19,6 +19,7 @@
   .verified-container p {
     font-size: 1.2em;
     color: #555;
+    line-height: 1.6;
   }
   .login-button {
     display: inline-block;
@@ -38,7 +39,14 @@
 
 <div class="verified-container">
   <h1>✅ Email Verified!</h1>
-  <p>Thank you for confirming your account. You can now access all the features of SaglamScan.</p>
-  <a href="{{ url_for('home') }}" class="login-button">Continue to Your Account</a>
+  <p>Thank you for confirming your account. Your email address has been successfully verified.</p>
+
+  {% if user_name %}
+    <p><strong>You can now access all features of SaglamScan.</strong></p>
+    <a href="{{ url_for('home') }}" class="login-button">Continue to Your Account</a>
+  {% else %}
+    <p><strong>Please log in to continue and access all features.</strong></p>
+    <a href="#" onclick="openAuthModal('{{ url_for('login') }}'); return false;" class="login-button">Login Now</a>
+  {% endif %}
 </div>
 {% endblock %}

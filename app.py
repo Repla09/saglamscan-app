@@ -371,15 +371,12 @@ def signup(): return render_template('signup.html')
 @app.route('/login', methods=['GET'])
 def login(): return render_template('login.html')
 
-
 # --- NEW ROUTE FOR EMAIL VERIFICATION LANDING PAGE ---
 @app.route('/verified')
 def verified():
-    # We can flash a more permanent success message here if we want
-    flash("Your email has been verified! Welcome to SaglamScan.", "success")
+    # This page now handles its own messaging.
+    # We show a success message on the page itself.
     return render_template('verified.html')
-
-
 # --- END OF NEW ROUTE ---
 
 
