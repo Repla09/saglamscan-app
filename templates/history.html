@@ -4,26 +4,32 @@
 <style>
     .history-container h1 { text-align: center; color: #333; }
     .history-item { display: flex; align-items: center; background: white; margin-bottom: 15px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .history-item img { width: 80px; height: 80px; border-radius: 6px; object-fit: cover; margin-right: 20px; }
+    .history-item img { width: 80px; height: 80px; border-radius: 6px; object-fit: cover; margin-right: 20px; border: 1px solid #eee; }
     .history-item-info { flex-grow: 1; }
     .history-item-info h3 { margin: 0 0 5px; }
     .history-item-info p { margin: 0; color: #666; }
-    .grade-badge { font-size: 1.5em; font-weight: 700; padding: 10px; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
-    .grade-A { background: #4CAF50; } .grade-B { background: #8BC34A; } .grade-C { background: #FFC107; } .grade-D { background: #FF9800; } .grade-F { background: #F44336; }
+    .grade-badge { font-size: 1.5em; font-weight: 700; padding: 10px; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .grade-A { background: #4CAF50; } .grade-B { background: #8BC34A; } .grade-C { background: #FFC107; color: #333} .grade-D { background: #FF9800; color: #333;} .grade-F { background: #F44336; }
 </style>
 <div class="history-container">
     <h1>{{ t['your_scan_history'] }}</h1>
     {% if history %}
         {% for scan in history %}
-        <div class="history-item">
-            <img src="{{ url_for('get_processed_image', filename=scan.filename) }}" alt="{{ scan.original_filename }}">
+        <a href="#" class="history-item" style="text-decoration: none; color: inherit;"> <!-- Link can be added later -->
+            {% if scan.image_url %}
+                <img src="{{ scan.image_url }}" alt="{{ scan.original_filename or 'scanned product' }}">
+            {% endif %}
             <div class="history-item-info">
-                <h3>{{ scan.original_filename }}</h3>
-                <p>{{ t['scanned_on'] }}: {{ scan.formatted_timestamp }}</p>
-                <p>{{ t['calories'] }}: {{ scan.calories }}</p>
+                <h3>{{ scan.original_filename or 'Scanned Item' }}</h3>
+                <p><strong>{{ t['scanned_on'] }}</strong> {{ scan.formatted_timestamp }}</p>
+                {% if scan.calories and scan.calories != 'N/A' %}
+                    <p><strong>{{ t['calories'] }}:</strong> {{ scan.calories }}</p>
+                {% endif %}
             </div>
-            <div class="grade-badge grade-{{ scan.health_grade }}">{{ scan.health_grade }}</div>
-        </div>
+            {% if scan.health_grade and scan.health_grade != 'N/A' %}
+                <div class="grade-badge grade-{{ scan.health_grade }}">{{ scan.health_grade }}</div>
+            {% endif %}
+        </a>
         {% endfor %}
     {% else %}
         <p style="text-align:center;">{{ t['no_saved_scans'] }}</p>

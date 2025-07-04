@@ -1,6 +1,6 @@
 import os
 import secrets
-from flask import Flask, request, render_template, url_for, redirect, flash, session, send_from_directory, g
+from flask import Flask, request, render_template, url_for, redirect, flash, session, g
 from PIL import Image
 import re
 import uuid
@@ -12,6 +12,9 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 import google.generativeai as genai
 from urllib.parse import urlparse, parse_qs
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Import translations
 from translations import translations
@@ -24,27 +27,43 @@ logger = logging.getLogger(__name__)
 # --- App Configuration ---
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(16)
-    UPLOAD_FOLDER = 'uploads'
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
-    MAX_IMAGE_SIZE = (2048, 2048)
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload size
 
 
 app = Flask(__name__)
 app.config.from_object(Config)
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 app.jinja_env.add_extension('jinja2.ext.do')
 
 # --- Securely load API Keys from Environment Variables ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-FIREBASE_WEB_API_KEY = os.environ.get('FIREBASE_WEB_API_KEY')  # For frontend auth
+FIREBASE_WEB_API_KEY = os.environ.get('FIREBASE_WEB_API_KEY')
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET')
 
-# --- Firebase Initialization (Backend) ---
+# --- Cloudinary Configuration ---
 try:
+    if all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
+        cloudinary.config(
+            cloud_name=CLOUDINARY_CLOUD_NAME,
+            api_key=CLOUDINARY_API_KEY,
+            api_secret=CLOUDINARY_API_SECRET,
+            secure=True
+        )
+        logger.info("Cloudinary configured successfully.")
+    else:
+        logger.warning("Cloudinary environment variables not fully set. Image uploads will fail.")
+except Exception as e:
+    logger.error(f"Cloudinary configuration failed: {e}")
+
+# --- Firebase Initialization (Auth & Firestore ONLY) ---
+try:
+    # For a deployed environment (like Render), load from environment variable
     firebase_service_account_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON')
     if firebase_service_account_json:
         cred_dict = json.loads(firebase_service_account_json)
         cred = credentials.Certificate(cred_dict)
+    # For local development, fall back to using the serviceAccountKey.json file
     else:
         logger.warning("Loading Firebase credentials from serviceAccountKey.json for local development.")
         cred = credentials.Certificate('serviceAccountKey.json')
@@ -53,7 +72,7 @@ try:
         firebase_admin.initialize_app(cred)
     db = firestore.client()
     FIREBASE_ENABLED = True
-    logger.info("Firebase initialized successfully.")
+    logger.info("Firebase (Auth/Firestore) initialized successfully.")
 except Exception as e:
     FIREBASE_ENABLED = False
     logger.error(f"Firebase initialization failed: {e}")
@@ -120,68 +139,82 @@ def get_nutrient_explanations():
 
 def create_empty_nutrition_data():
     return {key: 'N/A' for key in
-            list(NUTRIENT_CLASSES.keys()) + ['serving_size', 'servings_per_container', 'ingredient_list', 'allergens',
-                                             'warnings', 'filename', 'original_filename']}
+            list(NUTRIENT_CLASSES.keys()) + ['image_url', 'original_filename']}
 
 
 def process_image_and_extract_data(file_storage):
+    """
+    Processes an uploaded image file, uploads it to Cloudinary,
+    extracts nutrition data with Gemini, and returns the result.
+    """
     result = {'data': None, 'error': None}
     original_filename = secure_filename(file_storage.filename)
-    unique_filename = f"{uuid.uuid4()}{os.path.splitext(original_filename)[1]}"
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+
+    # 1. Read image into memory for processing
     try:
-        file_storage.save(filepath)
-        with Image.open(filepath) as img:
-            img.verify()
-        with Image.open(filepath) as img:
-            if img.mode != 'RGB': img = img.convert('RGB')
-            if max(img.size) > max(app.config['MAX_IMAGE_SIZE']): img.thumbnail(app.config['MAX_IMAGE_SIZE'],
-                                                                                Image.Resampling.LANCZOS)
-            img.save(filepath, 'JPEG', quality=90)
+        from io import BytesIO
+        in_mem_file = BytesIO()
+        file_storage.save(in_mem_file)
+        in_mem_file.seek(0)
     except Exception as e:
-        if os.path.exists(filepath): os.remove(filepath)
-        logger.error(f"Image processing failed: {e}");
-        result['error'] = "Invalid or corrupted image file.";
+        logger.error(f"Image reading failed: {e}")
+        result['error'] = "Could not read the uploaded file."
         return result
+
+    # 2. Upload to Cloudinary
     try:
-        with open(filepath, 'rb') as f:
-            image_bytes = f.read()
+        public_id = f"saglamscan/{uuid.uuid4()}"
+        upload_result = cloudinary.uploader.upload(in_mem_file, public_id=public_id, overwrite=True)
+
+        image_url = upload_result.get('secure_url')
+        if not image_url:
+            raise Exception("Cloudinary did not return a secure URL.")
+
+    except Exception as e:
+        logger.error(f"Cloudinary upload failed: {e}")
+        result['error'] = "Could not save image to cloud storage."
+        return result
+
+    # 3. Extract data with Gemini
+    try:
+        in_mem_file.seek(0)
+        image_bytes = in_mem_file.read()
         parsed_data = parse_nutrition_facts_gemini(image_bytes)
-        if not parsed_data: raise ValueError("AI returned no data.")
+        if not parsed_data:
+            raise ValueError("AI returned no data.")
 
         parsed_data['allergens'] = [i for i in parsed_data.get('allergens', []) if
                                     i and i.strip().lower() not in ['n/a', 'none']]
         parsed_data['warnings'] = [i for i in parsed_data.get('warnings', []) if
                                    i and i.strip().lower() not in ['n/a', 'none']]
         parsed_data['health_grade'] = calculate_health_grade(parsed_data)
-        parsed_data['filename'] = unique_filename
+
+        parsed_data['image_url'] = image_url
         parsed_data['original_filename'] = original_filename
+
+        if 'filename' in parsed_data:
+            del parsed_data['filename']
+
         result['data'] = parsed_data
+
     except Exception as e:
-        logger.error(f"Data extraction failed for {unique_filename}: {e}")
-        data = create_empty_nutrition_data();
-        data.update({'filename': unique_filename, 'original_filename': original_filename})
+        logger.error(f"Data extraction failed for {original_filename}: {e}")
+        data = create_empty_nutrition_data()
+        data.update({'image_url': image_url, 'original_filename': original_filename, 'error': str(e)})
         result['data'] = data
         result['error'] = str(e)
+
     return result
 
 
-def process_existing_file(filename):
-    from werkzeug.datastructures import FileStorage
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.exists(filepath): return {'error': f"File {filename} not found."}
-    file_storage = FileStorage(stream=open(filepath, 'rb'), filename=filename)
-    return process_image_and_extract_data(file_storage)
-
-
 def save_scan_to_history(data):
-    if FIREBASE_ENABLED and 'user_id' in session and data and 'filename' in data:
+    if FIREBASE_ENABLED and 'user_id' in session and data and data.get('image_url'):
         user_id = session['user_id']
         scan_data_to_save = {k: v for k, v in data.items() if v is not None}
         scan_data_to_save.setdefault('health_grade', 'N/A')
         scan_data_to_save['timestamp'] = firestore.SERVER_TIMESTAMP
         db.collection('users').document(user_id).collection('scans').document().set(scan_data_to_save)
-        logger.info(f"Saved scan {data.get('filename')} for user {user_id}")
+        logger.info(f"Saved scan with image {data.get('image_url')} for user {user_id}")
 
 
 def parse_nutrition_facts_gemini(image_bytes):
@@ -203,8 +236,7 @@ def parse_nutrition_facts_gemini(image_bytes):
         generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
         response = gemini_vision_model.generate_content([prompt, {"mime_type": "image/jpeg", "data": image_bytes}],
                                                         generation_config=generation_config)
-        full_data = create_empty_nutrition_data();
-        full_data.update(json.loads(response.text))
+        full_data = json.loads(response.text)
         return full_data
     except Exception as e:
         logger.error(f"Gemini parsing error: {e}");
@@ -219,21 +251,20 @@ def extract_numeric_value(value_str):
 
 
 def calculate_health_grade(data):
-    score = 0;
+    score = 0
     penalties = {'added_sugars': [(20, -4), (10, -3), (5, -2)], 'saturated_fat': [(10, -4), (5, -3), (2, -2)],
                  'sodium': [(600, -4), (400, -3), (200, -2)], 'trans_fat': [(0, -3)],
                  'calories': [(400, -3), (250, -2)]}
     bonuses = {'dietary_fiber': [(5, 3), (3, 2)], 'protein': [(15, 3), (8, 2)]}
-    for nutrient, thresholds in penalties.items():
-        value = extract_numeric_value(data.get(nutrient))
-        if nutrient == 'added_sugars' and data.get(nutrient, 'N/A') == 'N/A': value = extract_numeric_value(
-            data.get('total_sugars'))
-        for threshold, penalty in thresholds:
-            if value > threshold: score += penalty; break
-    for nutrient, thresholds in bonuses.items():
-        value = extract_numeric_value(data.get(nutrient));
-        for threshold, bonus in thresholds:
-            if value >= threshold: score += bonus; break
+    for n, t in penalties.items():
+        v = extract_numeric_value(data.get(n));
+        if n == 'added_sugars' and data.get(n, 'N/A') == 'N/A': v = extract_numeric_value(data.get('total_sugars'))
+        for th, p in t:
+            if v > th: score += p;break
+    for n, t in bonuses.items():
+        v = extract_numeric_value(data.get(n));
+        for th, b in t:
+            if v >= th: score += b;break
     if score >= 3:
         return "A"
     elif score >= 1:
@@ -246,17 +277,15 @@ def calculate_health_grade(data):
         return "F"
 
 
-def get_ai_comparison(product1_data, product2_data):
+def get_ai_comparison(p1, p2):
     if not GEMINI_AVAILABLE: return g.t['comparison_error']
-    p1_simple = {g.t.get(k, k): product1_data.get(k, 'N/A') for k in ['calories', 'protein', 'added_sugars', 'sodium']}
-    p2_simple = {g.t.get(k, k): product2_data.get(k, 'N/A') for k in ['calories', 'protein', 'added_sugars', 'sodium']}
-    prompt = g.t['ai_comparison_instruction'].format(p1_name=product1_data.get('original_filename', 'P1'),
-                                                     p1_data=json.dumps(p1_simple),
-                                                     p2_name=product2_data.get('original_filename', 'P2'),
-                                                     p2_data=json.dumps(p2_simple))
+    s1 = {g.t.get(k, k): p1.get(k, 'N/A') for k in ['calories', 'protein', 'added_sugars', 'sodium']}
+    s2 = {g.t.get(k, k): p2.get(k, 'N/A') for k in ['calories', 'protein', 'added_sugars', 'sodium']}
+    p = g.t['ai_comparison_instruction'].format(p1_name=p1.get('original_filename', 'P1'), p1_data=json.dumps(s1),
+                                                p2_name=p2.get('original_filename', 'P2'), p2_data=json.dumps(s2))
     try:
-        response = genai.GenerativeModel('gemini-1.5-flash').generate_content(prompt);
-        return response.text.strip()
+        r = genai.GenerativeModel('gemini-1.5-flash').generate_content(p);
+        return r.text.strip()
     except Exception as e:
         logger.error(f"AI comparison failed: {e}");
         return g.t['comparison_error']
@@ -264,7 +293,6 @@ def get_ai_comparison(product1_data, product2_data):
 
 @app.context_processor
 def inject_globals():
-    """Injects variables into all templates."""
     return {
         'lang': g.lang,
         't': g.t,
@@ -281,169 +309,160 @@ def before_request():
 
 
 @app.route('/')
-def home(): return render_template('upload.html', is_logged_in='user_id' in session)
+def home():
+    return render_template('upload.html', is_logged_in='user_id' in session)
 
 
-@app.route('/analyze', methods=['GET', 'POST'])
+# Analyze routes now only accept POST, as GET is no longer needed
+@app.route('/analyze', methods=['POST'])
 def analyze():
-    if 'user_id' not in session: flash(g.t['login_required_analyze'], "error"); return redirect(url_for('home'))
-    if not session.get('email_verified'): flash(g.t['verify_email_analyze'], "error"); return redirect(url_for('home'))
+    if 'user_id' not in session:
+        flash(g.t['login_required_analyze'], "error")
+        return redirect(url_for('home'))
+    if not session.get('email_verified'):
+        flash(g.t['verify_email_analyze'], "error")
+        return redirect(url_for('home'))
 
-    if request.method == 'POST':
-        file_storage = request.files.get('file');
-        if not file_storage or not file_storage.filename: flash(g.t['no_file_selected'], "error"); return redirect(
-            url_for('home'))
-        result = process_image_and_extract_data(file_storage);
-        save_scan_to_history(result.get('data'))
-    else:  # GET
-        filename = request.args.get('filename')
-        if not filename: return redirect(url_for('home'))
-        result = process_existing_file(filename)
+    file = request.files.get('file');
+    if not file or not file.filename:
+        flash(g.t['no_file_selected'], "error")
+        return redirect(url_for('home'))
 
-    if result.get('error'): flash(result['error'], "error")
+    result = process_image_and_extract_data(file);
+    save_scan_to_history(result.get('data'))
+
+    if result.get('error'):
+        flash(result['error'], "error")
+
     return render_template('result.html', parsed_data=result.get('data'), error_message=result.get('error'),
                            nutrient_classes=NUTRIENT_CLASSES, nutrient_explanations=get_nutrient_explanations())
 
 
-@app.route('/compare', methods=['GET', 'POST'])
+@app.route('/compare', methods=['POST'])
 def compare():
-    if 'user_id' not in session: flash(g.t['login_required_compare'], "error"); return redirect(url_for('home'))
-    if not session.get('email_verified'): flash(g.t['verify_email_compare'], "error"); return redirect(url_for('home'))
+    if 'user_id' not in session:
+        flash(g.t['login_required_compare'], "error")
+        return redirect(url_for('home'))
+    if not session.get('email_verified'):
+        flash(g.t['verify_email_compare'], "error")
+        return redirect(url_for('home'))
 
-    if request.method == 'POST':
-        file1, file2 = request.files.get('file1'), request.files.get('file2')
-        if not file1 or not file2: return render_template('compare.html', has_results=False,
-                                                          error_message=g.t['upload_both_images'])
-        result1, result2 = process_image_and_extract_data(file1), process_image_and_extract_data(file2)
-        save_scan_to_history(result1.get('data'));
-        save_scan_to_history(result2.get('data'))
-    elif request.args.get('file1') and request.args.get('file2'):
-        filename1, filename2 = request.args.get('file1'), request.args.get('file2')
-        result1, result2 = process_existing_file(filename1), process_existing_file(filename2)
-    else:
-        return render_template('compare.html', has_results=False)
+    file1, file2 = request.files.get('file1'), request.files.get('file2')
+    if not file1 or not file2:
+        return render_template('compare.html', has_results=False, error_message=g.t['upload_both_images'])
 
-    error_message = None
-    if result1.get('error') or result2.get(
-            'error'): error_message = f"P1: {result1.get('error', 'OK')}. P2: {result2.get('error', 'OK')}."
-    product1_data, product2_data = result1.get('data') or create_empty_nutrition_data(), result2.get(
+    result1, result2 = process_image_and_extract_data(file1), process_image_and_extract_data(file2)
+    save_scan_to_history(result1.get('data'));
+    save_scan_to_history(result2.get('data'))
+
+    error_msg = None
+    if result1.get('error') or result2.get('error'):
+        error_msg = f"P1: {result1.get('error', 'OK')}. P2: {result2.get('error', 'OK')}."
+
+    data1, data2 = result1.get('data') or create_empty_nutrition_data(), result2.get(
         'data') or create_empty_nutrition_data()
-    ai_comparison_summary = g.t['comparison_error'] if error_message else get_ai_comparison(product1_data,
-                                                                                            product2_data)
+    summary = g.t['comparison_error'] if error_msg else get_ai_comparison(data1, data2)
 
-    return render_template('compare.html', product1=product1_data, product2=product2_data, error_message=error_message,
-                           nutrient_classes=NUTRIENT_CLASSES, has_results=True, ai_summary=ai_comparison_summary)
+    return render_template('compare.html', product1=data1, product2=data2, error_message=error_msg,
+                           nutrient_classes=NUTRIENT_CLASSES, has_results=True, ai_summary=summary)
 
 
+# All other routes are standard and can remain the same
 @app.route('/set_language/<lang>')
 def set_language(lang):
-    if lang not in translations or lang == g.lang:
+    if lang not in translations:
         return redirect(request.referrer or url_for('home'))
-
-    response = redirect(url_for('home'))  # Default redirect
-    if request.referrer:
-        parsed_url = urlparse(request.referrer)
-        referrer_path = parsed_url.path
-
-        if referrer_path == url_for('analyze'):
-            filename = parse_qs(parsed_url.query).get('filename', [None])[0]
-            if filename: response = redirect(url_for('analyze', filename=filename))
-        elif referrer_path == url_for('compare'):
-            params = parse_qs(parsed_url.query)
-            file1, file2 = params.get('file1', [None])[0], params.get('file2', [None])[0]
-            if file1 and file2: response = redirect(url_for('compare', file1=file1, file2=file2))
-        else:
-            response = redirect(request.referrer)
-
+    response = redirect(request.referrer or url_for('home'))
     response.set_cookie('lang', lang, max_age=365 * 24 * 60 * 60)
     return response
 
 
-@app.route('/processed_images/<filename>')
-def get_processed_image(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-
 @app.route('/signup', methods=['GET'])
-def signup(): return render_template('signup.html')
+def signup():
+    return render_template('signup.html')
 
 
 @app.route('/login', methods=['GET'])
-def login(): return render_template('login.html')
-
-# --- NEW ROUTE FOR EMAIL VERIFICATION LANDING PAGE ---
-@app.route('/verified')
-def verified():
-    # This page now handles its own messaging.
-    # We show a success message on the page itself.
-    return render_template('verified.html')
-# --- END OF NEW ROUTE ---
+def login():
+    return render_template('login.html')
 
 
 @app.route('/session_login', methods=['POST'])
 def session_login():
     try:
-        id_token = request.form.get('id_token');
-        decoded_token = auth.verify_id_token(id_token, check_revoked=True);
+        id_token = request.form.get('id_token')
+        decoded_token = auth.verify_id_token(id_token, check_revoked=True)
         user = auth.get_user(decoded_token['uid'])
-        session.update(
-            {'user_id': user.uid, 'user_name': user.display_name or 'User', 'email_verified': user.email_verified})
+        session.update({
+            'user_id': user.uid,
+            'user_name': user.display_name or 'User',
+            'email_verified': user.email_verified
+        })
         flash(f"{g.t['welcome']}, {session['user_name']}!" if user.email_verified else g.t['verification_sent'],
               "success")
         return redirect(url_for('home'))
     except Exception as e:
-        logger.error(f"Session login failed: {e}");
-        flash(g.t['login_failed'], "error");
+        logger.error(f"Session login failed: {e}")
+        flash(g.t['login_failed'], "error")
         return redirect(url_for('home'))
 
 
 @app.route('/logout')
 def logout():
-    session.clear();
-    flash(g.t['logged_out'], "success");
+    session.clear()
+    flash(g.t['logged_out'], "success")
     return redirect(url_for('home'))
 
 
 @app.route('/account', methods=['GET', 'POST'])
 def account():
-    if 'user_id' not in session: flash(g.t['login_required_account'], "error"); return redirect(url_for('home'))
+    if 'user_id' not in session:
+        flash(g.t['login_required_account'], "error")
+        return redirect(url_for('home'))
     user_id = session['user_id']
     if request.method == 'POST':
         new_name = request.form.get('name')
         if new_name and new_name != session.get('user_name'):
             try:
-                auth.update_user(user_id, display_name=new_name);
-                session['user_name'] = new_name;
-                flash(
-                    g.t['name_updated'], "success")
+                auth.update_user(user_id, display_name=new_name)
+                session['user_name'] = new_name
+                flash(g.t['name_updated'], "success")
             except Exception as e:
-                logger.error(f"Failed to update user name: {e}");
+                logger.error(f"Name update failed: {e}")
                 flash(g.t['name_update_failed'], "error")
         return redirect(url_for('account'))
-    user = auth.get_user(user_id);
+    user = auth.get_user(user_id)
     return render_template('account.html', user_name=user.display_name, user_email=user.email)
 
 
 @app.route('/history')
 def history():
-    if 'user_id' not in session: flash(g.t['login_required_history'], "error"); return redirect(url_for('home'))
-    if not session.get('email_verified'): flash(g.t['verify_email_history'], "error"); return redirect(url_for('home'))
+    if 'user_id' not in session:
+        flash(g.t['login_required_history'], "error")
+        return redirect(url_for('home'))
+    if not session.get('email_verified'):
+        flash(g.t['verify_email_history'], "error")
+        return redirect(url_for('home'))
+
     scans_ref = db.collection('users').document(session['user_id']).collection('scans').order_by('timestamp',
                                                                                                  direction=firestore.Query.DESCENDING).stream()
     scan_history = []
     for scan in scans_ref:
-        scan_data = scan.to_dict();
+        scan_data = scan.to_dict()
         scan_data['id'] = scan.id
-        scan_data['formatted_timestamp'] = scan_data['timestamp'].strftime(
-            '%Y-%m-%d %H:%M') if 'timestamp' in scan_data and hasattr(scan_data['timestamp'], 'strftime') else 'N/A'
+        if 'timestamp' in scan_data and hasattr(scan_data['timestamp'], 'strftime'):
+            scan_data['formatted_timestamp'] = scan_data['timestamp'].strftime('%Y-%m-%d %H:%M')
+        else:
+            scan_data['formatted_timestamp'] = 'N/A'
         scan_history.append(scan_data)
     return render_template('history.html', history=scan_history)
 
 
 @app.route('/how-it-works')
-def how_it_works(): return render_template('how_it_works.html')
+def how_it_works():
+    return render_template('how_it_works.html')
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5001));
+    port = int(os.environ.get("PORT", 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
