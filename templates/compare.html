@@ -8,10 +8,12 @@
     .header-card h1 { font-family: 'Montserrat', sans-serif; font-size: 2.5em; margin: 0 0 10px; }
     .header-card p { font-size: 1.2em; opacity: 0.9; margin: 0; }
     .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
-    .upload-card { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.08); text-align: center; border: 2px dashed #e0e0e0; }
+    .upload-card { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.08); text-align: center; border: 2px dashed #e0e0e0; display: flex; flex-direction: column; align-items: center; }
     .upload-card label { cursor: pointer; font-weight: 600; color: var(--primary-color); font-size: 1.1em; display: block; margin-bottom: 15px; }
     .upload-card input[type="file"] { display: none; }
     .file-name { font-style: italic; color: #6c757d; margin-top: 10px; min-height: 20px; word-wrap: break-word; }
+    /* New style for the preview image */
+    .image-preview { display:none; max-width: 150px; max-height: 150px; margin-top: 15px; border-radius: 8px; border: 1px solid #ddd; object-fit: cover; }
     .submit-button-wrapper { text-align: center; margin-bottom: 2rem; }
     .submit-button { padding: 15px 40px; font-size: 1.2em; font-weight: 600; cursor: pointer; border: none; border-radius: 8px; background-color: #673AB7; color: white; }
     .submit-button:disabled { background-color: #6c757d; cursor: not-allowed; }
@@ -33,26 +35,6 @@
     .nutrient-comparison-row strong { font-size: 1em; color: #333; }
     .nutrient-comparison-row span { font-size: 1.1em; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
     .value-winner { background-color: #e8f5e9; color: #2e7d32; } .value-neutral { background-color: #f5f5f5; color: #444; }
-
-    /* --- MOBILE STYLES --- */
-    @media (max-width: 768px) {
-        .compare-container {
-            margin: 1rem auto;
-            padding: 0 15px;
-        }
-        .header-card {
-            padding: 25px;
-        }
-        .header-card h1 {
-            font-size: 2em;
-        }
-        .upload-grid, .comparison-grid {
-            grid-template-columns: 1fr;
-        }
-        .upload-card {
-            padding: 20px;
-        }
-    }
 </style>
 {% endblock %}
 
@@ -60,17 +42,19 @@
 <div class="compare-container">
     <div class="header-card"><h1>{{ t['product_comparison'] }}</h1><p>{{ t['upload_two_labels'] }}</p></div>
 
-    <form method="POST" action="{{ url_for('compare') }}" enctype="multipart/form-data" onsubmit="handleCompareSubmit(event)">
+    <form method="POST" action="{{ url_for('compare') }}" enctype="multipart/form-data" onsubmit="return handleCompareSubmit(event)">
         <div class="upload-grid">
             <div class="upload-card">
                 <label for="file1">{{ t['upload_product'] }} 1</label>
-                <input type="file" name="file1" id="file1" accept="image/*" required onchange="displayFileName('file1', 'file1-name')">
+                <input type="file" name="file1" id="file1" accept="image/*" required onchange="displayFileNameAndPreview('file1', 'file1-name', 'file1-preview')">
                 <div id="file1-name" class="file-name">{{ t['no_file_chosen'] }}</div>
+                <img id="file1-preview" src="#" alt="Product 1 Preview" class="image-preview"/>
             </div>
             <div class="upload-card">
                 <label for="file2">{{ t['upload_product'] }} 2</label>
-                <input type="file" name="file2" id="file2" accept="image/*" required onchange="displayFileName('file2', 'file2-name')">
+                <input type="file" name="file2" id="file2" accept="image/*" required onchange="displayFileNameAndPreview('file2', 'file2-name', 'file2-preview')">
                 <div id="file2-name" class="file-name">{{ t['no_file_chosen'] }}</div>
+                <img id="file2-preview" src="#" alt="Product 2 Preview" class="image-preview"/>
             </div>
         </div>
         <div class="submit-button-wrapper"><button type="submit" id="compare-submit-button" class="submit-button">{{ t['compare_now'] }}</button></div>
@@ -121,22 +105,41 @@
 <script>
     function handleCompareSubmit(event) {
         const f1 = document.getElementById('file1'), f2 = document.getElementById('file2');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+
         if (f1.files.length > 0 && f2.files.length > 0) {
-            const b = document.getElementById('compare-submit-button');
-            b.disabled = true;
-            b.textContent = '{{ t["comparing"] }}';
+            loadingText.textContent = '{{ t["comparing"] }}'; // Set specific text for comparing
+            loadingOverlay.style.display = 'flex';
+            return true; // Allow form submission
         }
+        // If files aren't ready, the browser's "required" attribute will handle it.
+        // No need for extra logic here unless you want custom toasts.
     }
-    function displayFileName(fileInputId, nameElementId) {
-        const f = document.getElementById(fileInputId), n = document.getElementById(nameElementId);
-        if(f.files.length > 0) {
-            n.textContent = f.files[0].name;
-            n.style.fontStyle = 'normal';
-            n.style.color = '#333';
+
+    function displayFileNameAndPreview(fileInputId, nameElementId, previewElementId) {
+        const fileInput = document.getElementById(fileInputId);
+        const nameElement = document.getElementById(nameElementId);
+        const previewElement = document.getElementById(previewElementId);
+
+        if (fileInput.files.length > 0) {
+            // Show file name
+            nameElement.textContent = fileInput.files[0].name;
+            nameElement.style.fontStyle = 'normal';
+            nameElement.style.color = '#333';
+
+            // Show image preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewElement.src = e.target.result;
+                previewElement.style.display = 'block';
+            }
+            reader.readAsDataURL(fileInput.files[0]);
         } else {
-            n.textContent = "{{ t['no_file_chosen'] }}";
-            n.style.fontStyle = 'italic';
-            n.style.color = '#6c757d';
+            nameElement.textContent = "{{ t['no_file_chosen'] }}";
+            nameElement.style.fontStyle = 'italic';
+            nameElement.style.color = '#6c757d';
+            previewElement.style.display = 'none';
         }
     }
 </script>

@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ t['ai_nutrition_analyzer'] }}{% endblock %} - SaglamScan</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
-
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary-color: #4CAF50; --secondary-color: #607D8B; --background-light: #f1f8e9; --success-color: #2e7d32; --error-color: #c62828;}
         body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--background-light); }
-        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; height: 60px; }
-        .navbar-left { display: flex; align-items: center; gap: 15px; }
-        .navbar-right { display: flex; align-items: center; gap: 15px; }
+        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .navbar-left, .navbar-right { display: flex; align-items: center; gap: 15px; }
         .navbar a { color: #333; text-decoration: none; padding: 14px 16px; font-weight: 600; cursor: pointer; border-radius: 4px; }
         .navbar-brand img { height: 28px; width: auto; vertical-align: middle; }
         .navbar a:hover { background-color: #f1f1f1; }
@@ -42,41 +40,44 @@
         .lang-button:hover { background-color: #f0f0f0; }
         .flag-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 
-        .hamburger {
-            display: none;
+        /* Loading Overlay Styles */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
             flex-direction: column;
-            justify-content: space-around;
-            width: 2rem;
-            height: 2rem;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
         }
-        .hamburger:focus { outline: none; }
-        .hamburger div { width: 2rem; height: 0.25rem; background: #333; border-radius: 10px; transition: all 0.3s linear; position: relative; transform-origin: 1px; }
 
-        @media (max-width: 768px) {
-            .navbar-right {
-                display: none;
-                flex-direction: column;
-                align-items: center;
-                position: absolute;
-                top: 60px;
-                right: 0;
-                width: 100%;
-                background-color: white;
-                box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-                padding: 1rem 0;
-            }
-            .navbar-right.active {
-                display: flex;
-            }
-            .hamburger {
-                display: flex;
-            }
+        #loading-overlay .spinner {
+            width: 60px;
+            height: 60px;
+            border: 7px solid #f3f3f3;
+            border-top: 7px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
+
+        #loading-overlay p {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
     </style>
     {% block head_extra %}{% endblock %}
 </head>
@@ -87,7 +88,6 @@
         <button onclick="sendVerificationEmail()">{{ t['resend_email'] }}</button>
     </div>
     {% endif %}
-
     <nav class="navbar">
         <div class="navbar-left">
              <a href="{{ url_for('home') }}" class="navbar-brand">
@@ -95,14 +95,7 @@
              </a>
              <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
         </div>
-
-        <button class="hamburger" id="hamburger-button">
-            <div></div>
-            <div></div>
-            <div></div>
-        </button>
-
-        <div class="navbar-right" id="navbar-right-links">
+        <div class="navbar-right">
             <div class="language-switcher">
                 <button class="lang-button">
                     {% if lang == 'az' %}
@@ -145,19 +138,21 @@
             {% endif %}
         </div>
     </nav>
-
     <main class="content">{% block content %}{% endblock %}</main>
+
+    <!-- Modal for Auth -->
     <div id="modal-overlay"><div id="modal-container"><span class="close-modal" onclick="closeAuthModal()">×</span><div id="modal-content"></div></div></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p id="loading-text">{{ t.get('analyzing', 'Analyzing...') }}</p>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <div id="toast-container"></div>
     <script>
-        const hamburger = document.getElementById('hamburger-button');
-        const navLinks = document.getElementById('navbar-right-links');
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-        });
-
         const firebaseConfig = {
             apiKey: "{{ firebase_web_api_key }}",
             authDomain: "nutrition-1366d.firebaseapp.com",
@@ -180,30 +175,7 @@
         modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeAuthModal(); });
         function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
         const logoutLink = document.getElementById('logout-link'); if (logoutLink) { logoutLink.addEventListener('click', (e) => { e.preventDefault(); auth.signOut().then(() => { window.location.href = logoutLink.href; }).catch((error) => { console.error('Logout Error', error); window.location.href = logoutLink.href; }); }); }
-
-        auth.onIdTokenChanged(async (user) => {
-            if (user) {
-                const emailVerifiedInSession = document.body.dataset.isVerified === 'true';
-                if (user.emailVerified && !emailVerifiedInSession) {
-                    console.log('Email verified! Refreshing session...');
-                    const idToken = await user.getIdToken(true);
-
-                    const hiddenForm = document.createElement('form');
-                    hiddenForm.method = 'POST';
-                    hiddenForm.action = "{{ url_for('session_login') }}";
-
-                    const tokenInput = document.createElement('input');
-                    tokenInput.type = 'hidden';
-                    tokenInput.name = 'id_token';
-                    tokenInput.value = idToken;
-                    hiddenForm.appendChild(tokenInput);
-
-                    document.body.appendChild(hiddenForm);
-                    hiddenForm.submit();
-                }
-            }
-        });
-
+        auth.onIdTokenChanged(async (user) => { if (user) { const emailVerifiedInSession = document.body.dataset.isVerified === 'true'; if (user.emailVerified && !emailVerifiedInSession) { console.log('Email verified! Refreshing session...'); const idToken = await user.getIdToken(true); const hiddenForm = document.createElement('form'); hiddenForm.method = 'POST'; hiddenForm.action = "{{ url_for('session_login') }}"; const tokenInput = document.createElement('input'); tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken; hiddenForm.appendChild(tokenInput); document.body.appendChild(hiddenForm); hiddenForm.submit(); } } });
         {% with messages = get_flashed_messages(with_categories=True) %}{% if messages %}{% for category, message in messages %}showToast("{{ message|safe }}", "{{ category }}");{% endfor %}{% endif %}{% endwith %}
     </script>
 </body>
