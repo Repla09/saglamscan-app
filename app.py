@@ -11,7 +11,7 @@ from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
 import google.generativeai as genai
-from urllib.parse import urlparse  # <-- ADDED FOR THE NEW LOGIC
+from urllib.parse import urlparse
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -56,14 +56,12 @@ try:
 except Exception as e:
     logger.error(f"Cloudinary configuration failed: {e}")
 
-# --- Firebase Initialization (Auth & Firestore ONLY) ---
+# --- Firebase Initialization ---
 try:
-    # For a deployed environment (like Render), load from environment variable
     firebase_service_account_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON')
     if firebase_service_account_json:
         cred_dict = json.loads(firebase_service_account_json)
         cred = credentials.Certificate(cred_dict)
-    # For local development, fall back to using the serviceAccountKey.json file
     else:
         logger.warning("Loading Firebase credentials from serviceAccountKey.json for local development.")
         cred = credentials.Certificate('serviceAccountKey.json')
@@ -138,19 +136,12 @@ def get_nutrient_explanations():
 
 
 def create_empty_nutrition_data():
-    return {key: 'N/A' for key in
-            list(NUTRIENT_CLASSES.keys()) + ['image_url', 'original_filename']}
+    return {key: 'N/A' for key in list(NUTRIENT_CLASSES.keys()) + ['image_url', 'original_filename']}
 
 
 def process_image_and_extract_data(file_storage):
-    """
-    Processes an uploaded image file, uploads it to Cloudinary,
-    extracts nutrition data with Gemini, and returns the result.
-    """
     result = {'data': None, 'error': None}
     original_filename = secure_filename(file_storage.filename)
-
-    # 1. Read image into memory for processing
     try:
         from io import BytesIO
         in_mem_file = BytesIO()
@@ -160,50 +151,35 @@ def process_image_and_extract_data(file_storage):
         logger.error(f"Image reading failed: {e}")
         result['error'] = "Could not read the uploaded file."
         return result
-
-    # 2. Upload to Cloudinary
     try:
         public_id = f"saglamscan/{uuid.uuid4()}"
         upload_result = cloudinary.uploader.upload(in_mem_file, public_id=public_id, overwrite=True)
-
         image_url = upload_result.get('secure_url')
-        if not image_url:
-            raise Exception("Cloudinary did not return a secure URL.")
-
+        if not image_url: raise Exception("Cloudinary did not return a secure URL.")
     except Exception as e:
         logger.error(f"Cloudinary upload failed: {e}")
         result['error'] = "Could not save image to cloud storage."
         return result
-
-    # 3. Extract data with Gemini
     try:
         in_mem_file.seek(0)
         image_bytes = in_mem_file.read()
         parsed_data = parse_nutrition_facts_gemini(image_bytes)
-        if not parsed_data:
-            raise ValueError("AI returned no data.")
-
+        if not parsed_data: raise ValueError("AI returned no data.")
         parsed_data['allergens'] = [i for i in parsed_data.get('allergens', []) if
                                     i and i.strip().lower() not in ['n/a', 'none']]
         parsed_data['warnings'] = [i for i in parsed_data.get('warnings', []) if
                                    i and i.strip().lower() not in ['n/a', 'none']]
         parsed_data['health_grade'] = calculate_health_grade(parsed_data)
-
         parsed_data['image_url'] = image_url
         parsed_data['original_filename'] = original_filename
-
-        if 'filename' in parsed_data:
-            del parsed_data['filename']
-
+        if 'filename' in parsed_data: del parsed_data['filename']
         result['data'] = parsed_data
-
     except Exception as e:
         logger.error(f"Data extraction failed for {original_filename}: {e}")
         data = create_empty_nutrition_data()
         data.update({'image_url': image_url, 'original_filename': original_filename, 'error': str(e)})
         result['data'] = data
         result['error'] = str(e)
-
     return result
 
 
@@ -221,23 +197,12 @@ def parse_nutrition_facts_gemini(image_bytes):
     if not GEMINI_AVAILABLE: return None
     summary_instruction = g.t.get('ai_summary_instruction',
                                   'Provide a 3-4 sentence, easy-to-understand nutritional summary for a consumer.')
-    prompt = f"""
-    You are an expert food label data extractor. Analyze the image and return ONLY a single, valid JSON object.
-    Do not include any text or markdown formatting outside the JSON object.
-    Required JSON structure:
-    {{"serving_size": "...", "servings_per_container": "...", "calories": "...", "total_fat": "...", "saturated_fat": "...", "trans_fat": "...", "cholesterol": "...", "sodium": "...", "total_carbohydrates": "...", "dietary_fiber": "...", "total_sugars": "...", "added_sugars": "...", "protein": "...", "vit_d": "...", "calcium": "...", "iron": "...", "potassium": "...", "ingredient_list": "...", "allergens": ["...", "..."], "warnings": ["...", "..."], "ai_summary": "..."}}
-    Instructions:
-    - Use "N/A" for any missing values.
-    - In `allergens`, list common allergens based on the ingredient list.
-    - In `warnings`, list ingredients of concern like artificial sweeteners or colors.
-    - In the `ai_summary` field: {summary_instruction}
-    """
+    prompt = f"""You are an expert food label data extractor. Analyze the image and return ONLY a single, valid JSON object. Do not include any text or markdown formatting outside the JSON object. Required JSON structure: {{"serving_size": "...", "servings_per_container": "...", "calories": "...", "total_fat": "...", "saturated_fat": "...", "trans_fat": "...", "cholesterol": "...", "sodium": "...", "total_carbohydrates": "...", "dietary_fiber": "...", "total_sugars": "...", "added_sugars": "...", "protein": "...", "vit_d": "...", "calcium": "...", "iron": "...", "potassium": "...", "ingredient_list": "...", "allergens": ["...", "..."], "warnings": ["...", "..."], "ai_summary": "..."}} Instructions: - Use "N/A" for any missing values. - In `allergens`, list common allergens based on the ingredient list. - In `warnings`, list ingredients of concern like artificial sweeteners or colors. - In the `ai_summary` field: {summary_instruction}"""
     try:
         generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
         response = gemini_vision_model.generate_content([prompt, {"mime_type": "image/jpeg", "data": image_bytes}],
                                                         generation_config=generation_config)
-        full_data = json.loads(response.text)
-        return full_data
+        return json.loads(response.text)
     except Exception as e:
         logger.error(f"Gemini parsing error: {e}");
         return None
@@ -293,13 +258,8 @@ def get_ai_comparison(p1, p2):
 
 @app.context_processor
 def inject_globals():
-    return {
-        'lang': g.lang,
-        't': g.t,
-        'user_name': session.get('user_name'),
-        'email_verified': session.get('email_verified'),
-        'firebase_web_api_key': FIREBASE_WEB_API_KEY
-    }
+    return {'lang': g.lang, 't': g.t, 'user_name': session.get('user_name'),
+            'email_verified': session.get('email_verified'), 'firebase_web_api_key': FIREBASE_WEB_API_KEY}
 
 
 @app.before_request
@@ -315,120 +275,82 @@ def home():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    if 'user_id' not in session:
-        flash(g.t['login_required_analyze'], "error")
-        return redirect(url_for('home'))
-    if not session.get('email_verified'):
-        flash(g.t['verify_email_analyze'], "error")
-        return redirect(url_for('home'))
-
+    if 'user_id' not in session: flash(g.t['login_required_analyze'], "error"); return redirect(url_for('home'))
+    if not session.get('email_verified'): flash(g.t['verify_email_analyze'], "error"); return redirect(url_for('home'))
     file = request.files.get('file');
-    if not file or not file.filename:
-        flash(g.t['no_file_selected'], "error")
-        return redirect(url_for('home'))
-
+    if not file or not file.filename: flash(g.t['no_file_selected'], "error"); return redirect(url_for('home'))
     result = process_image_and_extract_data(file);
     save_scan_to_history(result.get('data'))
-
-    if result.get('error'):
-        flash(result['error'], "error")
-
+    if result.get('error'): flash(result['error'], "error")
     return render_template('result.html', parsed_data=result.get('data'), error_message=result.get('error'),
                            nutrient_classes=NUTRIENT_CLASSES, nutrient_explanations=get_nutrient_explanations())
 
 
 @app.route('/compare', methods=['GET', 'POST'])
 def compare():
-    if request.method == 'GET':
-        return render_template('compare.html', has_results=False)
-
-    # POST request logic
-    if 'user_id' not in session:
-        flash(g.t['login_required_compare'], "error")
-        return redirect(url_for('compare'))
-    if not session.get('email_verified'):
-        flash(g.t['verify_email_compare'], "error")
-        return redirect(url_for('compare'))
-
+    if request.method == 'GET': return render_template('compare.html', has_results=False)
+    if 'user_id' not in session: flash(g.t['login_required_compare'], "error"); return redirect(url_for('compare'))
+    if not session.get('email_verified'): flash(g.t['verify_email_compare'], "error"); return redirect(
+        url_for('compare'))
     file1, file2 = request.files.get('file1'), request.files.get('file2')
-    if not file1 or not file2:
-        flash(g.t['upload_both_images'], "error")
-        return redirect(url_for('compare'))
-
+    if not file1 or not file2: flash(g.t['upload_both_images'], "error"); return redirect(url_for('compare'))
     result1, result2 = process_image_and_extract_data(file1), process_image_and_extract_data(file2)
     save_scan_to_history(result1.get('data'));
     save_scan_to_history(result2.get('data'))
-
     error_msg = None
-    if result1.get('error') or result2.get('error'):
-        error_msg = f"Product 1 Error: {result1.get('error', 'OK')}. Product 2 Error: {result2.get('error', 'OK')}."
-
+    if result1.get('error') or result2.get(
+        'error'): error_msg = f"Product 1 Error: {result1.get('error', 'OK')}. Product 2 Error: {result2.get('error', 'OK')}."
     data1, data2 = result1.get('data') or create_empty_nutrition_data(), result2.get(
         'data') or create_empty_nutrition_data()
     summary = g.t['comparison_error'] if error_msg else get_ai_comparison(data1, data2)
-
     return render_template('compare.html', product1=data1, product2=data2, error_message=error_msg,
                            nutrient_classes=NUTRIENT_CLASSES, has_results=True, ai_summary=summary)
 
 
-# --- UPDATED LANGUAGE SWITCHER ROUTE ---
 @app.route('/set_language/<lang>')
 def set_language(lang):
-    if lang not in translations:
-        lang = 'en'  # Default to English if language is invalid
-
-    # Default redirect location is the home page
+    if lang not in translations: lang = 'en'
     redirect_url = url_for('home')
-
-    # Check the page the user came from
     if request.referrer:
-        # urlparse helps us safely get the path of the URL
         referrer_path = urlparse(request.referrer).path
-
-        # If the user was NOT on a result or compare page, send them back
-        # Note: url_for('analyze') will fail because it only accepts POST.
-        # We hardcode the path instead.
-        if referrer_path not in ['/analyze', '/compare']:
-            redirect_url = request.referrer
-
-    # Create the response and redirect to the determined URL
+        if referrer_path not in ['/analyze', '/compare']: redirect_url = request.referrer
     response = redirect(redirect_url)
-
-    # Set the language cookie
-    response.set_cookie('lang', lang, max_age=365 * 24 * 60 * 60)  # 1 year
-
+    response.set_cookie('lang', lang, max_age=365 * 24 * 60 * 60)
     return response
 
 
 @app.route('/signup', methods=['GET'])
-def signup():
-    return render_template('signup.html')
+def signup(): return render_template('signup.html')
 
 
 @app.route('/login', methods=['GET'])
-def login():
-    return render_template('login.html')
+def login(): return render_template('login.html')
 
 
+# --- FIXED: session_login route to restore verification banner ---
 @app.route('/session_login', methods=['POST'])
 def session_login():
     try:
         id_token = request.form.get('id_token')
-        decoded_token = auth.verify_id_token(id_token, check_revoked=True)
-        user = auth.get_user(decoded_token['uid'])
-        session.update({
-            'user_id': user.uid,
-            'user_name': user.display_name or 'User',
-            'email_verified': user.email_verified
-        })
-        # Check if the user's email was just verified
-        was_just_verified = user.email_verified and not session.get('email_verified_on_server', False)
-        if was_just_verified:
-            session['email_verified_on_server'] = True
+        decoded_token = auth.verify_id_token(id_token)
 
-        flash(f"{g.t['welcome']}, {session['user_name']}!" if user.email_verified else g.t['verification_sent'],
-              "success")
+        uid = decoded_token['uid']
+        user_name = decoded_token.get('name')
+        email_verified = decoded_token.get('email_verified', False)
+
+        if not user_name:
+            user = auth.get_user(uid)
+            user_name = user.display_name
+
+        session.update({
+            'user_id': uid,
+            'user_name': user_name or 'User',
+            'email_verified': email_verified
+        })
+
+        flash(f"{g.t['welcome']}, {session['user_name']}!" if email_verified else g.t['verification_sent'], "success")
         return redirect(url_for('home'))
+
     except Exception as e:
         logger.error(f"Session login failed: {e}")
         flash(g.t['login_failed'], "error")
@@ -437,16 +359,14 @@ def session_login():
 
 @app.route('/logout')
 def logout():
-    session.clear()
-    flash(g.t['logged_out'], "success")
+    session.clear();
+    flash(g.t['logged_out'], "success");
     return redirect(url_for('home'))
 
 
 @app.route('/account', methods=['GET', 'POST'])
 def account():
-    if 'user_id' not in session:
-        flash(g.t['login_required_account'], "error")
-        return redirect(url_for('home'))
+    if 'user_id' not in session: flash(g.t['login_required_account'], "error"); return redirect(url_for('home'))
     user_id = session['user_id']
     if request.method == 'POST':
         new_name = request.form.get('name')
@@ -456,7 +376,7 @@ def account():
                 session['user_name'] = new_name
                 flash(g.t['name_updated'], "success")
             except Exception as e:
-                logger.error(f"Name update failed: {e}")
+                logger.error(f"Name update failed: {e}");
                 flash(g.t['name_update_failed'], "error")
         return redirect(url_for('account'))
     user = auth.get_user(user_id)
@@ -465,13 +385,8 @@ def account():
 
 @app.route('/history')
 def history():
-    if 'user_id' not in session:
-        flash(g.t['login_required_history'], "error")
-        return redirect(url_for('home'))
-    if not session.get('email_verified'):
-        flash(g.t['verify_email_history'], "error")
-        return redirect(url_for('home'))
-
+    if 'user_id' not in session: flash(g.t['login_required_history'], "error"); return redirect(url_for('home'))
+    if not session.get('email_verified'): flash(g.t['verify_email_history'], "error"); return redirect(url_for('home'))
     scans_ref = db.collection('users').document(session['user_id']).collection('scans').order_by('timestamp',
                                                                                                  direction=firestore.Query.DESCENDING).stream()
     scan_history = []
@@ -487,8 +402,7 @@ def history():
 
 
 @app.route('/how-it-works')
-def how_it_works():
-    return render_template('how_it_works.html')
+def how_it_works(): return render_template('how_it_works.html')
 
 
 if __name__ == '__main__':

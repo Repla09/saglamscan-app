@@ -8,40 +8,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* --- Global Styles --- */
-        :root {
-            --primary-color: #4CAF50;
-            --secondary-color: #607D8B;
-            --background-light: #f1f8e9;
-            --success-color: #2e7d32;
-            --error-color: #c62828;
-        }
+        :root { --primary-color: #4CAF50; --secondary-color: #607D8B; --background-light: #f1f8e9; --success-color: #2e7d32; --error-color: #c62828; }
         body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--background-light); }
         .content { padding: 20px; }
-
-        /* --- Reusable Components (Modal, Toast, Loader) --- */
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 1002; display: flex; flex-direction: column; gap: 10px; }
         .toast { padding: 15px 25px; color: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: 600; opacity: 0; transform: translateX(100%); transition: all 0.5s ease-in-out; }
         .toast.show { opacity: 1; transform: translateX(0); }
-        .toast.toast-success { background-color: var(--success-color); }
-        .toast.toast-error { background-color: var(--error-color); }
         #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1001; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
         #modal-overlay.active { display: flex; opacity: 1; }
-        #modal-container { background: white; border-radius: 12px; max-width: 450px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative; transform: scale(0.95); transition: transform 0.3s ease-out; }
-        #modal-overlay.active #modal-container { transform: scale(1); }
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 2.5em; line-height: 1; cursor: pointer; color: #aaa; }
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); backdrop-filter: blur(5px); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         #loading-overlay .spinner { width: 60px; height: 60px; border: 7px solid #f3f3f3; border-top: 7px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* --- Navbar Styles --- */
         .navbar { background: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; position: sticky; top: 0; z-index: 1000; }
         .navbar-container { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1200px; }
         .navbar-left { display: flex; align-items: center; gap: 15px; flex-grow: 1; }
         .navbar-brand img { height: 28px; width: auto; vertical-align: middle; }
         .navbar-left a:not(.navbar-brand) { color: #333; text-decoration: none; padding: 14px 16px; font-weight: 600; border-radius: 4px; }
         .navbar-left a:hover { background-color: #f1f1f1; }
-
         .navbar-right { display: flex; align-items: center; gap: 15px; }
         .user-menu, .language-switcher { position: relative; display: inline-block; }
         .user-button, .lang-button { background: none; border: none; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: 'Roboto', sans-serif; font-weight: 600; color: #333; padding: 14px 10px; border-radius: 4px; }
@@ -52,60 +36,34 @@
         .dropdown-content { display: none; position: absolute; background: white; min-width: 160px; box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2); z-index: 1; right: 0; border-radius: 8px; overflow: hidden; }
         .dropdown-content a { display: flex; gap: 10px; padding: 12px 16px; color: black; text-decoration: none; }
         .dropdown-content a:hover { background-color: #f1f1f1; }
-
-        /* --- Auth Button Styles --- */
-        .auth-button {
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-weight: 700;
-            text-decoration: none;
-            transition: all 0.2s ease-in-out;
-            border: 2px solid transparent;
-            display: inline-block; /* Ensures proper padding and border */
-        }
-        .auth-button.primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        .auth-button.secondary {
-            color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        .auth-button.primary:hover {
-            background-color: var(--success-color);
-            transform: translateY(-1px);
-        }
-        .auth-button.secondary:hover {
-            background-color: var(--primary-color);
-            color: white;
-            transform: translateY(-1px);
-        }
-
+        .auth-button { padding: 8px 20px; border-radius: 20px; font-weight: 700; text-decoration: none; transition: all 0.2s ease-in-out; border: 2px solid transparent; display: inline-block; }
+        .auth-button.primary { background-color: var(--primary-color); color: white; }
+        .auth-button.secondary { color: var(--primary-color); border-color: var(--primary-color); }
+        .auth-button.primary:hover { background-color: var(--success-color); transform: translateY(-1px); }
+        .auth-button.secondary:hover { background-color: var(--primary-color); color: white; transform: translateY(-1px); }
         .navbar-toggler { display: none; background: transparent; border: none; cursor: pointer; padding: 10px; z-index: 1001; }
         .hamburger-box { width: 24px; height: 20px; display: flex; flex-direction: column; justify-content: space-between; }
         .hamburger-line { width: 100%; height: 3px; background-color: #333; border-radius: 3px; transition: all 0.3s ease-in-out; }
         .navbar-toggler.active .line-1 { transform: translateY(8.5px) rotate(45deg); }
         .navbar-toggler.active .line-2 { opacity: 0; }
         .navbar-toggler.active .line-3 { transform: translateY(-8.5px) rotate(-45deg); }
-
         .mobile-menu-links { position: absolute; top: 100%; left: 0; right: 0; z-index: 999; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; max-height: 0; transition: max-height 0.4s ease-out; }
         .mobile-menu-links.active { max-height: 500px; }
         .mobile-menu-links a { color: #333; text-decoration: none; padding: 15px 20px; border-bottom: 1px solid #f0f0f0; }
-
-        @media screen and (max-width: 992px) {
-            .navbar-left a:not(.navbar-brand) { display: none; }
-            .navbar-right-desktop { display: none; }
-            .navbar-toggler { display: block; }
-        }
-        @media screen and (min-width: 993px) {
-            .language-switcher:hover .dropdown-content, .user-menu:hover .dropdown-content { display: block; }
-        }
+        @media screen and (max-width: 992px) { .navbar-left a:not(.navbar-brand) { display: none; } .navbar-right-desktop { display: none; } .navbar-toggler { display: block; } }
+        @media screen and (min-width: 993px) { .language-switcher:hover .dropdown-content, .user-menu:hover .dropdown-content { display: block; } }
         .language-switcher.open .dropdown-content { display: block; }
-
     </style>
     {% block head_extra %}{% endblock %}
 </head>
 <body data-is-verified="{{ email_verified|tojson }}">
+
+    {% if user_name and not email_verified %}
+    <div class="verification-banner" id="verification-banner">
+        {{ t['email_not_verified'] }}
+        <button onclick="sendVerificationEmail()">{{ t['resend_email'] }}</button>
+    </div>
+    {% endif %}
 
     <nav class="navbar">
         <div class="navbar-container">
@@ -115,7 +73,6 @@
                 </a>
                 <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
             </div>
-
             <div class="navbar-right">
                 <div class="language-switcher" id="language-switcher">
                     <button class="lang-button">
@@ -126,7 +83,6 @@
                         <a href="{{ url_for('set_language', lang='en') }}"><img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" class="flag-icon"><span>{{t['english']}}</span></a>
                     </div>
                 </div>
-
                 <div class="navbar-right-desktop">
                     {% if user_name %}
                         <div class="user-menu">
@@ -145,7 +101,6 @@
                         <a id="signup-link" href="{{ url_for('signup') }}" class="auth-button primary">{{ t['sign_up'] }}</a>
                     {% endif %}
                 </div>
-
                 <button class="navbar-toggler" onclick="toggleMobileMenu()">
                     <div class="hamburger-box">
                         <div class="hamburger-line line-1"></div>
@@ -155,7 +110,6 @@
                 </button>
             </div>
         </div>
-
         <div class="mobile-menu-links" id="mobile-menu-links">
              <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
             {% if user_name %}
@@ -189,25 +143,10 @@
         function closeAuthModal() { modalOverlay.classList.remove('active'); modalContent.innerHTML = ''; }
         function executeScriptsInContainer(container) { const scripts = Array.from(container.getElementsByTagName('script')); scripts.forEach(oldScript => { const newScript = document.createElement('script'); Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value)); newScript.appendChild(document.createTextNode(oldScript.innerHTML)); oldScript.parentNode.replaceChild(newScript, oldScript); }); }
         async function openAuthModal(url) { try { const response = await fetch(url); if (!response.ok) throw new Error('Failed to load form'); modalContent.innerHTML = await response.text(); executeScriptsInContainer(modalContent); modalOverlay.classList.add('active'); } catch (error) { console.error('Error opening modal:', error); showToast("Could not load the form.", 'error'); } }
-
-        function toggleMobileMenu() {
-            document.querySelector('.navbar-toggler').classList.toggle('active');
-            document.getElementById('mobile-menu-links').classList.toggle('active');
-        }
-
+        function toggleMobileMenu() { document.querySelector('.navbar-toggler').classList.toggle('active'); document.getElementById('mobile-menu-links').classList.toggle('active'); }
         const langSwitcher = document.getElementById('language-switcher');
-        langSwitcher.addEventListener('click', function(event) {
-            if (window.innerWidth <= 992) {
-                event.stopPropagation();
-                this.classList.toggle('open');
-            }
-        });
-        document.addEventListener('click', function() {
-            if (langSwitcher.classList.contains('open')) {
-                langSwitcher.classList.remove('open');
-            }
-        });
-
+        langSwitcher.addEventListener('click', function(event) { if (window.innerWidth <= 992) { event.stopPropagation(); this.classList.toggle('open'); } });
+        document.addEventListener('click', function() { if (langSwitcher.classList.contains('open')) { langSwitcher.classList.remove('open'); } });
         const loginLink = document.getElementById('login-link');
         if (loginLink) loginLink.addEventListener('click', e => { e.preventDefault(); openAuthModal(loginLink.href); });
         const signupLink = document.getElementById('signup-link');
@@ -220,17 +159,26 @@
         if (logoutLink) logoutLink.addEventListener('click', (e) => { e.preventDefault(); auth.signOut().then(() => { window.location.href = logoutLink.href; }); });
         const mobileLogoutLink = document.getElementById('mobile-logout-link');
         if (mobileLogoutLink) mobileLogoutLink.addEventListener('click', e => { e.preventDefault(); if (logoutLink) logoutLink.click(); });
-
         modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeAuthModal(); });
-
         function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
 
+        // --- FIXED: Robust logic to sync server session and prevent loops ---
         auth.onIdTokenChanged(async (user) => {
             if (user) {
                 const emailVerifiedInSession = document.body.dataset.isVerified === 'true';
                 if (user.emailVerified && !emailVerifiedInSession) {
-                    console.log('Email has been verified! Refreshing page to update session.');
-                    window.location.reload();
+                    console.log('Email verified on client, updating server session.');
+                    const idToken = await user.getIdToken(true);
+                    const hiddenForm = document.createElement('form');
+                    hiddenForm.method = 'POST';
+                    hiddenForm.action = "{{ url_for('session_login') }}";
+                    const tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = 'id_token';
+                    tokenInput.value = idToken;
+                    hiddenForm.appendChild(tokenInput);
+                    document.body.appendChild(hiddenForm);
+                    hiddenForm.submit();
                 }
             }
         });
