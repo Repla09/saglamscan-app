@@ -9,7 +9,7 @@
     <style>
         :root { --primary-color: #4CAF50; --secondary-color: #607D8B; --background-light: #f1f8e9; --success-color: #2e7d32; --error-color: #c62828;}
         body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--background-light); }
-        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .navbar { background-color: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; position: sticky; top: 0; z-index: 1000; }
         .navbar-brand img { height: 28px; width: auto; vertical-align: middle; }
         .content { padding: 20px; }
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 1002; display: flex; flex-direction: column; gap: 10px; }
@@ -26,57 +26,51 @@
         .close-modal:hover { color: #333; }
         .verification-banner { background-color: #fff3e0; border-bottom: 2px solid #ffcc80; padding: 10px 20px; text-align: center; font-weight: 500; color: #e65100; }
         .verification-banner button { background-color: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-left: 15px; font-weight: 600; }
-
-        /* Loading Overlay Styles */
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(5px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.3s ease; }
         #loading-overlay .spinner { width: 60px; height: 60px; border: 7px solid #f3f3f3; border-top: 7px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         #loading-overlay p { font-size: 1.2em; font-weight: 600; color: #333; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* --- New Hamburger Menu CSS --- */
-        .navbar-container { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .navbar-brand { flex-shrink: 0; }
-        .navbar-toggler { display: none; font-size: 1.5rem; background: transparent; border: none; cursor: pointer; }
-        .navbar-links { display: flex; align-items: center; gap: 5px; } /* Reduced gap slightly for desktop */
-        .navbar-links a, .user-button, .lang-button { text-decoration: none; color: #333; padding: 14px 10px; font-weight: 600; border-radius: 4px; display: flex; align-items: center; gap: 8px; }
-        .navbar-links a:hover, .user-button:hover, .lang-button:hover { background-color: #f1f1f1; }
-
-        .user-menu, .language-switcher { position: relative; }
-        .user-button, .lang-button { background: none; border: none; font-size: 1em; cursor: pointer; font-family: 'Roboto', sans-serif; }
-        .lang-button { border: 2px solid #ddd; border-radius: 20px; font-size: 0.9em; font-weight: 700; }
-        .user-icon, .flag-icon { width: 22px; height: 22px; }
-        .flag-icon { border-radius: 50%; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        /* --- Navbar Desktop Styles (Original State) --- */
+        .navbar-container { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1200px; }
+        .navbar-left, .navbar-right-desktop { display: flex; align-items: center; gap: 15px; }
+        .navbar a { color: #333; text-decoration: none; padding: 14px 16px; font-weight: 600; cursor: pointer; border-radius: 4px; }
+        .navbar-left a:hover, .navbar-right-desktop a:hover, .user-button:hover, .lang-button:hover { background-color: #f1f1f1; }
+        .user-menu, .language-switcher { position: relative; display: inline-block; }
+        .user-button, .lang-button { background: none; border: none; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: 'Roboto', sans-serif; font-weight: 600; color: #333; padding: 14px 16px; border-radius: 4px; }
+        .lang-button { border: 2px solid #ddd; border-radius: 20px; padding: 6px 12px; font-size: 0.9em; font-weight: 700; }
+        .user-icon { width: 24px; height: 24px; }
+        .flag-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
         .dropdown-content { display: none; position: absolute; background-color: white; min-width: 160px; box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2); z-index: 1; right: 0; border-radius: 8px; overflow: hidden; }
-        .dropdown-content a { color: black; padding: 12px 16px; display: flex; }
+        .dropdown-content a { color: black; padding: 12px 16px; display: flex; gap: 10px; }
         .user-menu:hover .dropdown-content, .language-switcher:hover .dropdown-content { display: block; }
 
-        /* Media Query for Mobile View */
+        /* Mobile-only Elements (hidden on desktop) */
+        .navbar-toggler, .mobile-menu-links { display: none; }
+
+        /* --- Responsive Styles for Mobile --- */
         @media screen and (max-width: 992px) {
+            .navbar-right-desktop { display: none; } /* Hide the desktop links */
+            .navbar-toggler { display: block; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; } /* Show the hamburger button */
+
             .navbar-container { flex-wrap: wrap; }
-            .navbar-brand { order: 1; }
-            .navbar-toggler { display: block; order: 2; margin-left: auto; }
-            .navbar-links {
-                display: none; /* Hide the menu by default */
-                order: 3;
+            .mobile-menu-links {
+                display: none; /* Hidden by default */
                 width: 100%;
                 flex-direction: column;
                 align-items: stretch;
-                padding-top: 10px;
                 background-color: white;
-            }
-            .navbar-links.active { display: flex; } /* Show the menu when active */
-            .navbar-links a, .navbar-links .user-menu, .navbar-links .language-switcher {
-                width: 100%;
-                padding: 12px 0;
                 border-top: 1px solid #f0f0f0;
-                justify-content: flex-start;
-                box-sizing: border-box;
             }
-            .navbar-links a:hover, .user-button:hover { background-color: transparent; }
-            .user-menu, .language-switcher { display: flex; flex-direction: column; width: 100%;}
-            .user-menu:hover .dropdown-content, .language-switcher:hover .dropdown-content { display: flex; flex-direction: column; }
-            .dropdown-content { position: static; box-shadow: none; border-top: 1px solid #eee; width: 100%;}
-            .dropdown-content a { border-top: 1px solid #f9f9f9; padding-left: 20px;}
+            .mobile-menu-links.active { display: flex; } /* Show when toggled */
+            .mobile-menu-links > a, .mobile-menu-links > div {
+                padding: 15px 20px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            .mobile-menu-links .lang-button, .mobile-menu-links .user-button { justify-content: space-between; width: 100%; padding: 0; border: none;}
+            .mobile-menu-links .user-button:hover, .mobile-menu-links .lang-button:hover { background-color: transparent;}
+            .mobile-menu-links .dropdown-content { position: static; box-shadow: none; border-top: 1px dashed #ddd; }
+            .mobile-menu-links .dropdown-content a { padding-left: 30px; border-top: 1px solid #f9f9f9; }
         }
     </style>
     {% block head_extra %}{% endblock %}
@@ -91,37 +85,28 @@
 
     <nav class="navbar">
         <div class="navbar-container">
-            <a href="{{ url_for('home') }}" class="navbar-brand">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SaglamScan Logo">
-            </a>
+            <div class="navbar-left">
+                 <a href="{{ url_for('home') }}" class="navbar-brand">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SaglamScan Logo">
+                 </a>
+                 <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
+            </div>
 
-            <button class="navbar-toggler" id="navbar-toggler" onclick="toggleMobileMenu()" aria-label="Toggle navigation">
-                ☰ <!-- Hamburger Icon -->
-            </button>
-
-            <div class="navbar-links" id="navbar-links-container">
-                <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
-
+            <!-- DESKTOP RIGHT-SIDE LINKS (hidden on mobile) -->
+            <div class="navbar-right-desktop">
                 <div class="language-switcher">
                     <button class="lang-button">
-                        {% if lang == 'az' %}
-                            <img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/az.svg" alt="Azerbaijani" class="flag-icon">
-                            <span>AZ</span>
-                        {% else %}
-                            <img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" alt="English" class="flag-icon">
-                            <span>EN</span>
-                        {% endif %}
+                        {% if lang == 'az' %}<img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/az.svg" class="flag-icon"><span>AZ</span>{% else %}<img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" class="flag-icon"><span>EN</span>{% endif %}
                     </button>
                     <div class="dropdown-content">
                         <a href="{{ url_for('set_language', lang='az') }}"><img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/az.svg" class="flag-icon"><span>{{t['azerbaijani']}}</span></a>
                         <a href="{{ url_for('set_language', lang='en') }}"><img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" class="flag-icon"><span>{{t['english']}}</span></a>
                     </div>
                 </div>
-
                 {% if user_name %}
                     <div class="user-menu">
                         <button class="user-button">
-                            <svg class="user-icon" viewBox="0 0 24 24" fill="currentColor" style="width:24px; height:24px;"><path d="M12,12.5c3.31,0,6-2.69,6-6s-2.69-6-6-6S6,3.19,6,6.5S8.69,12.5,12,12.5z M12,2.5c2.21,0,4,1.79,4,4s-1.79,4-4,4s-4-1.79-4-4S9.79,2.5,12,2.5z" /><path d="M12,14.5c-4.67,0-10,2.34-10,5v2h20v-2C22,16.84,16.67,14.5,12,14.5z M4.34,19.5c0.84-1.63,3.4-2.5,7.66-2.5s6.82,0.87,7.66,2.5H4.34z" /></svg>
+                            <svg class="user-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12,12.5c3.31,0,6-2.69,6-6s-2.69-6-6-6S6,3.19,6,6.5S8.69,12.5,12,12.5z M12,2.5c2.21,0,4,1.79,4,4s-1.79,4-4,4s-4-1.79-4-4S9.79,2.5,12,2.5z" /><path d="M12,14.5c-4.67,0-10,2.34-10,5v2h20v-2C22,16.84,16.67,14.5,12,14.5z M4.34,19.5c0.84-1.63,3.4-2.5,7.66-2.5s6.82,0.87,7.66,2.5H4.34z" /></svg>
                             <span>{{ user_name }}</span>
                         </button>
                         <div class="dropdown-content">
@@ -135,16 +120,40 @@
                     <a id="login-link" href="{{ url_for('login') }}">{{ t['login'] }}</a>
                 {% endif %}
             </div>
+
+            <!-- HAMBURGER BUTTON (hidden on desktop) -->
+            <button class="navbar-toggler" onclick="toggleMobileMenu()">☰</button>
+        </div>
+
+        <!-- MOBILE MENU LINKS (toggled by JS) -->
+        <div class="mobile-menu-links" id="mobile-menu-links">
+             <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
+            {% if user_name %}
+                 <a href="{{ url_for('account') }}">{{ t['my_account'] }}</a>
+                 <a href="{{ url_for('history') }}">{{ t['scan_history'] }}</a>
+                 <a id="mobile-logout-link" href="{{ url_for('logout') }}">{{ t['logout'] }}</a>
+            {% else %}
+                <a href="#" id="mobile-signup-link">{{ t['sign_up'] }}</a>
+                <a href="#" id="mobile-login-link">{{ t['login'] }}</a>
+            {% endif %}
+            <div class="language-switcher">
+                <button class="lang-button">
+                    Language
+                    <svg height="20" width="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false" style="display:inline-block"><path d="M4.516 7.548c0.436-0.446 1.043-0.481 1.576 0l3.908 3.747 3.908-3.747c0.533-0.481 1.141-0.446 1.574 0 0.436 0.445 0.408 1.197 0 1.615l-4.695 4.502c-0.533 0.481-1.141 0.446-1.574 0l-4.695-4.502c-0.408-0.418-0.436-1.17 0-1.615z"></path></svg>
+                </button>
+                <div class="dropdown-content">
+                     <a href="{{ url_for('set_language', lang='en') }}"><img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/gb.svg" class="flag-icon"><span>{{t['english']}}</span></a>
+                     <a href="{{ url_for('set_language', lang='az') }}"><img src="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/flags/4x3/az.svg" class="flag-icon"><span>{{t['azerbaijani']}}</span></a>
+                </div>
+            </div>
         </div>
     </nav>
-
     <main class="content">{% block content %}{% endblock %}</main>
     <div id="modal-overlay"><div id="modal-container"><span class="close-modal" onclick="closeAuthModal()">×</span><div id="modal-content"></div></div></div>
     <div id="loading-overlay" style="display: none;">
         <div class="spinner"></div>
         <p id="loading-text">{{ t.get('analyzing', 'Analyzing...') }}</p>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <div id="toast-container"></div>
@@ -166,11 +175,21 @@
         auth.onIdTokenChanged(async (user) => { if (user) { const emailVerifiedInSession = document.body.dataset.isVerified === 'true'; if (user.emailVerified && !emailVerifiedInSession) { console.log('Email verified! Refreshing session...'); const idToken = await user.getIdToken(true); const hiddenForm = document.createElement('form'); hiddenForm.method = 'POST'; hiddenForm.action = "{{ url_for('session_login') }}"; const tokenInput = document.createElement('input'); tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken; hiddenForm.appendChild(tokenInput); document.body.appendChild(hiddenForm); hiddenForm.submit(); } } });
         {% with messages = get_flashed_messages(with_categories=True) %}{% if messages %}{% for category, message in messages %}showToast("{{ message|safe }}", "{{ category }}");{% endfor %}{% endif %}{% endwith %}
 
-        // --- New Hamburger Menu JavaScript ---
+        // --- Hamburger Menu JavaScript ---
         function toggleMobileMenu() {
-            const linksContainer = document.getElementById('navbar-links-container');
-            linksContainer.classList.toggle('active');
+            const mobileMenu = document.getElementById('mobile-menu-links');
+            mobileMenu.classList.toggle('active');
         }
+
+        const mobileLoginLink = document.getElementById('mobile-login-link');
+        if (mobileLoginLink) mobileLoginLink.addEventListener('click', e => { e.preventDefault(); openAuthModal("{{ url_for('login') }}"); });
+
+        const mobileSignupLink = document.getElementById('mobile-signup-link');
+        if (mobileSignupLink) mobileSignupLink.addEventListener('click', e => { e.preventDefault(); openAuthModal("{{ url_for('signup') }}"); });
+
+        const mobileLogoutLink = document.getElementById('mobile-logout-link');
+        if (mobileLogoutLink) mobileLogoutLink.addEventListener('click', e => { e.preventDefault(); if (logoutLink) logoutLink.click(); });
+
     </script>
 </body>
 </html>
