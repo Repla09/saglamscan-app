@@ -77,7 +77,7 @@
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body>
+<body data-is-verified="{{ email_verified|tojson }}">
 
     <nav class="navbar">
         <div class="navbar-container">
@@ -102,7 +102,6 @@
                 <div class="navbar-right-desktop">
                     {% if user_name %}
                         <div class="user-menu">
-                            <!-- FIXED: Restored user icon and name -->
                             <button class="user-button">
                                 <svg class="user-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12,12.5c3.31,0,6-2.69,6-6s-2.69-6-6-6S6,3.19,6,6.5S8.69,12.5,12,12.5z M12,2.5c2.21,0,4,1.79,4,4s-1.79,4-4,4s-4-1.79-4-4S9.79,2.5,12,2.5z" /><path d="M12,14.5c-4.67,0-10,2.34-10,5v2h20v-2C22,16.84,16.67,14.5,12,14.5z M4.34,19.5c0.84-1.63,3.4-2.5,7.66-2.5s6.82,0.87,7.66,2.5H4.34z" /></svg>
                                 <span>{{ user_name }}</span>
@@ -129,7 +128,6 @@
             </div>
         </div>
 
-        <!-- FIXED: Mobile menu now positioned to slide down correctly over content -->
         <div class="mobile-menu-links" id="mobile-menu-links">
              <a href="{{ url_for('how_it_works') }}">{{ t['how_it_works'] }}</a>
             {% if user_name %}
@@ -154,7 +152,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script>
-        // Firebase config and other JS...
         const firebaseConfig = { apiKey: "{{ firebase_web_api_key }}", authDomain: "nutrition-1366d.firebaseapp.com", projectId: "nutrition-1366d", storageBucket: "nutrition-1366d.appspot.com", appId: "1:667763097330:web:401e196cbfe19c8c49da6b" };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
@@ -200,7 +197,22 @@
         modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeAuthModal(); });
 
         function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
-        auth.onIdTokenChanged(async (user) => { if (user) { const emailVerifiedInSession = document.body.dataset.isVerified === 'true'; if (user.emailVerified && !emailVerifiedInSession) { const idToken = await user.getIdToken(true); const hiddenForm = document.createElement('form'); hiddenForm.method = 'POST'; hiddenForm.action = "{{ url_for('session_login') }}"; const tokenInput = document.createElement('input'); tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken; hiddenForm.appendChild(tokenInput); document.body.appendChild(hiddenForm); hiddenForm.submit(); } } });
+
+        // --- FIXED: Simplified reload logic to prevent loops ---
+        auth.onIdTokenChanged(async (user) => {
+            if (user) {
+                const emailVerifiedInSession = document.body.dataset.isVerified === 'true';
+                // This condition is now only true ONCE, right after a user verifies their email in another tab
+                // and then comes back to the app.
+                if (user.emailVerified && !emailVerifiedInSession) {
+                    console.log('Email has been verified! Refreshing page to update session.');
+                    // Just reload the page. The server will see the new verified status
+                    // when the page loads and will update the session automatically.
+                    window.location.reload();
+                }
+            }
+        });
+
         {% with messages = get_flashed_messages(with_categories=True) %} {% if messages %} {% for category, message in messages %} showToast("{{ message|safe }}", "{{ category }}"); {% endfor %} {% endif %} {% endwith %}
     </script>
 </body>
