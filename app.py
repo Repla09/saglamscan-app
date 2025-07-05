@@ -11,7 +11,7 @@ from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
 import google.generativeai as genai
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse  # <-- ADDED FOR THE NEW LOGIC
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -313,7 +313,6 @@ def home():
     return render_template('upload.html', is_logged_in='user_id' in session)
 
 
-# Analyze routes now only accept POST, as GET is no longer needed
 @app.route('/analyze', methods=['POST'])
 def analyze():
     if 'user_id' not in session:
@@ -338,18 +337,23 @@ def analyze():
                            nutrient_classes=NUTRIENT_CLASSES, nutrient_explanations=get_nutrient_explanations())
 
 
-@app.route('/compare', methods=['POST'])
+@app.route('/compare', methods=['GET', 'POST'])
 def compare():
+    if request.method == 'GET':
+        return render_template('compare.html', has_results=False)
+
+    # POST request logic
     if 'user_id' not in session:
         flash(g.t['login_required_compare'], "error")
-        return redirect(url_for('home'))
+        return redirect(url_for('compare'))
     if not session.get('email_verified'):
         flash(g.t['verify_email_compare'], "error")
-        return redirect(url_for('home'))
+        return redirect(url_for('compare'))
 
     file1, file2 = request.files.get('file1'), request.files.get('file2')
     if not file1 or not file2:
-        return render_template('compare.html', has_results=False, error_message=g.t['upload_both_images'])
+        flash(g.t['upload_both_images'], "error")
+        return redirect(url_for('compare'))
 
     result1, result2 = process_image_and_extract_data(file1), process_image_and_extract_data(file2)
     save_scan_to_history(result1.get('data'));
@@ -357,7 +361,7 @@ def compare():
 
     error_msg = None
     if result1.get('error') or result2.get('error'):
-        error_msg = f"P1: {result1.get('error', 'OK')}. P2: {result2.get('error', 'OK')}."
+        error_msg = f"Product 1 Error: {result1.get('error', 'OK')}. Product 2 Error: {result2.get('error', 'OK')}."
 
     data1, data2 = result1.get('data') or create_empty_nutrition_data(), result2.get(
         'data') or create_empty_nutrition_data()
@@ -367,13 +371,32 @@ def compare():
                            nutrient_classes=NUTRIENT_CLASSES, has_results=True, ai_summary=summary)
 
 
-# All other routes are standard and can remain the same
+# --- UPDATED LANGUAGE SWITCHER ROUTE ---
 @app.route('/set_language/<lang>')
 def set_language(lang):
     if lang not in translations:
-        return redirect(request.referrer or url_for('home'))
-    response = redirect(request.referrer or url_for('home'))
-    response.set_cookie('lang', lang, max_age=365 * 24 * 60 * 60)
+        lang = 'en'  # Default to English if language is invalid
+
+    # Default redirect location is the home page
+    redirect_url = url_for('home')
+
+    # Check the page the user came from
+    if request.referrer:
+        # urlparse helps us safely get the path of the URL
+        referrer_path = urlparse(request.referrer).path
+
+        # If the user was NOT on a result or compare page, send them back
+        # Note: url_for('analyze') will fail because it only accepts POST.
+        # We hardcode the path instead.
+        if referrer_path not in ['/analyze', '/compare']:
+            redirect_url = request.referrer
+
+    # Create the response and redirect to the determined URL
+    response = redirect(redirect_url)
+
+    # Set the language cookie
+    response.set_cookie('lang', lang, max_age=365 * 24 * 60 * 60)  # 1 year
+
     return response
 
 
@@ -398,6 +421,11 @@ def session_login():
             'user_name': user.display_name or 'User',
             'email_verified': user.email_verified
         })
+        # Check if the user's email was just verified
+        was_just_verified = user.email_verified and not session.get('email_verified_on_server', False)
+        if was_just_verified:
+            session['email_verified_on_server'] = True
+
         flash(f"{g.t['welcome']}, {session['user_name']}!" if user.email_verified else g.t['verification_sent'],
               "success")
         return redirect(url_for('home'))

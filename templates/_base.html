@@ -42,7 +42,7 @@
         .navbar-left a:not(.navbar-brand) { color: #333; text-decoration: none; padding: 14px 16px; font-weight: 600; border-radius: 4px; }
         .navbar-left a:hover { background-color: #f1f1f1; }
 
-        .navbar-right { display: flex; align-items: center; gap: 5px; }
+        .navbar-right { display: flex; align-items: center; gap: 15px; }
         .user-menu, .language-switcher { position: relative; display: inline-block; }
         .user-button, .lang-button { background: none; border: none; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: 'Roboto', sans-serif; font-weight: 600; color: #333; padding: 14px 10px; border-radius: 4px; }
         .user-button:hover, .lang-button:hover { background-color: #f1f1f1; }
@@ -52,6 +52,34 @@
         .dropdown-content { display: none; position: absolute; background: white; min-width: 160px; box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2); z-index: 1; right: 0; border-radius: 8px; overflow: hidden; }
         .dropdown-content a { display: flex; gap: 10px; padding: 12px 16px; color: black; text-decoration: none; }
         .dropdown-content a:hover { background-color: #f1f1f1; }
+
+        /* --- Auth Button Styles --- */
+        .auth-button {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+            display: inline-block; /* Ensures proper padding and border */
+        }
+        .auth-button.primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .auth-button.secondary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .auth-button.primary:hover {
+            background-color: var(--success-color);
+            transform: translateY(-1px);
+        }
+        .auth-button.secondary:hover {
+            background-color: var(--primary-color);
+            color: white;
+            transform: translateY(-1px);
+        }
 
         .navbar-toggler { display: none; background: transparent; border: none; cursor: pointer; padding: 10px; z-index: 1001; }
         .hamburger-box { width: 24px; height: 20px; display: flex; flex-direction: column; justify-content: space-between; }
@@ -113,8 +141,8 @@
                             </div>
                         </div>
                     {% else %}
-                        <a id="signup-link" href="{{ url_for('signup') }}">{{ t['sign_up'] }}</a>
-                        <a id="login-link" href="{{ url_for('login') }}">{{ t['login'] }}</a>
+                        <a id="login-link" href="{{ url_for('login') }}" class="auth-button secondary">{{ t['login'] }}</a>
+                        <a id="signup-link" href="{{ url_for('signup') }}" class="auth-button primary">{{ t['sign_up'] }}</a>
                     {% endif %}
                 </div>
 
@@ -180,7 +208,6 @@
             }
         });
 
-        // Event listeners for auth links
         const loginLink = document.getElementById('login-link');
         if (loginLink) loginLink.addEventListener('click', e => { e.preventDefault(); openAuthModal(loginLink.href); });
         const signupLink = document.getElementById('signup-link');
@@ -198,16 +225,11 @@
 
         function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
 
-        // --- FIXED: Simplified reload logic to prevent loops ---
         auth.onIdTokenChanged(async (user) => {
             if (user) {
                 const emailVerifiedInSession = document.body.dataset.isVerified === 'true';
-                // This condition is now only true ONCE, right after a user verifies their email in another tab
-                // and then comes back to the app.
                 if (user.emailVerified && !emailVerifiedInSession) {
                     console.log('Email has been verified! Refreshing page to update session.');
-                    // Just reload the page. The server will see the new verified status
-                    // when the page loads and will update the session automatically.
                     window.location.reload();
                 }
             }
