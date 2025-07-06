@@ -8,86 +8,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* --- Global Styles --- */
-        :root {
-            --primary-color: #4CAF50;
-            --secondary-color: #607D8B;
-            --background-light: #f1f8e9;
-            --success-color: #2e7d32;
-            --error-color: #c62828;
-            --warning-bg: #fff8e1;
-            --warning-border: #ffc107;
-            --warning-text: #8c5a00;
-        }
+        :root { --primary-color: #4CAF50; --secondary-color: #607D8B; --background-light: #f1f8e9; --success-color: #2e7d32; --error-color: #c62828; }
         body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--background-light); }
         .content { padding: 20px; }
-
-        /* --- FIXED: Toast Notification Styles --- */
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 1002; display: flex; flex-direction: column; gap: 10px; }
-        .toast {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px 25px;
-            color: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            font-weight: 600;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.5s ease-in-out;
-        }
+        .toast { padding: 15px 25px; color: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: 600; opacity: 0; transform: translateX(100%); transition: all 0.5s ease-in-out; }
         .toast.show { opacity: 1; transform: translateX(0); }
-        .toast.toast-success { background-color: var(--success-color); }
-        .toast.toast-error { background-color: var(--error-color); }
-        /* Added for other potential message types */
-        .toast.toast-info { background-color: #1976d2; }
-        .toast.toast-warning { background-color: #f57c00; }
-
-        /* --- NEW: Redesigned Verification Banner --- */
-        .verification-banner {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            background-color: var(--warning-bg);
-            border-bottom: 3px solid var(--warning-border);
-            padding: 12px 20px;
-            color: var(--warning-text);
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-        .verification-banner svg {
-            width: 24px;
-            height: 24px;
-            flex-shrink: 0; /* Prevents icon from shrinking */
-        }
-        .verification-banner button {
-            background-color: var(--warning-border);
-            color: #423000;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 700;
-            transition: background-color 0.2s;
-            white-space: nowrap; /* Prevents button text from wrapping */
-        }
-        .verification-banner button:hover {
-            background-color: #ffca28;
-        }
-
-        /* --- Other Component Styles (Modal, Loader) --- */
         #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1001; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
         #modal-overlay.active { display: flex; opacity: 1; }
-        #modal-container { background: white; border-radius: 12px; max-width: 450px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative; transform: scale(0.95); transition: transform 0.3s ease-out; }
-        #modal-overlay.active #modal-container { transform: scale(1); }
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 2.5em; line-height: 1; cursor: pointer; color: #aaa; }
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); backdrop-filter: blur(5px); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         #loading-overlay .spinner { width: 60px; height: 60px; border: 7px solid #f3f3f3; border-top: 7px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* --- Navbar Styles --- */
         .navbar { background: white; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; position: sticky; top: 0; z-index: 1000; }
         .navbar-container { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1200px; }
         .navbar-left { display: flex; align-items: center; gap: 15px; flex-grow: 1; }
@@ -127,12 +59,8 @@
 <body data-is-verified="{{ email_verified|tojson }}">
 
     {% if user_name and not email_verified %}
-    <!-- UPDATED: Verification banner with new icon -->
     <div class="verification-banner" id="verification-banner">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-        </svg>
-        <span>{{ t['email_not_verified'] }}</span>
+        {{ t['email_not_verified'] }}
         <button onclick="sendVerificationEmail()">{{ t['resend_email'] }}</button>
     </div>
     {% endif %}
@@ -210,7 +138,7 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const toastContainer = document.getElementById('toast-container');
-        function showToast(message, category = 'info') { /* Updated default to 'info' */ const toast = document.createElement('div'); toast.className = `toast toast-${category}`; toast.textContent = message; toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000); }
+        function showToast(message, category = 'success') { const toast = document.createElement('div'); toast.className = `toast toast-${category}`; toast.textContent = message; toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000); }
         const modalOverlay = document.getElementById('modal-overlay'); const modalContent = document.getElementById('modal-content');
         function closeAuthModal() { modalOverlay.classList.remove('active'); modalContent.innerHTML = ''; }
         function executeScriptsInContainer(container) { const scripts = Array.from(container.getElementsByTagName('script')); scripts.forEach(oldScript => { const newScript = document.createElement('script'); Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value)); newScript.appendChild(document.createTextNode(oldScript.innerHTML)); oldScript.parentNode.replaceChild(newScript, oldScript); }); }
@@ -233,6 +161,8 @@
         if (mobileLogoutLink) mobileLogoutLink.addEventListener('click', e => { e.preventDefault(); if (logoutLink) logoutLink.click(); });
         modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeAuthModal(); });
         function sendVerificationEmail() { const user = auth.currentUser; if (user) { user.sendEmailVerification().then(() => showToast("{{ t['verification_sent'] }}", 'success')).catch(error => showToast(`Error: ${error.message}`, 'error')); } else { showToast("{{ t['not_logged_in'] }}", 'error'); } }
+
+        // --- FIXED: Robust logic to sync server session and prevent loops ---
         auth.onIdTokenChanged(async (user) => {
             if (user) {
                 const emailVerifiedInSession = document.body.dataset.isVerified === 'true';
@@ -252,6 +182,7 @@
                 }
             }
         });
+
         {% with messages = get_flashed_messages(with_categories=True) %} {% if messages %} {% for category, message in messages %} showToast("{{ message|safe }}", "{{ category }}"); {% endfor %} {% endif %} {% endwith %}
     </script>
 </body>
